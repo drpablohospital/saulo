@@ -18,6 +18,9 @@ from fastapi.responses import FileResponse
 app = FastAPI(title="Saulo Agent API", 
               description="Agente autónomo con búsqueda ontológica")
 
+# ===== SERVIR ARCHIVOS ESTÁTICOS (añade esto) =====
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # CORS para permitir frontend
 app.add_middleware(
     CORSMiddleware,
@@ -49,19 +52,8 @@ class RespuestaSaulo(BaseModel):
 # ===== ENDPOINTS =====
 @app.get("/")
 async def root():
-    """Página de bienvenida"""
-    html_content = """
-    <html>
-        <head><title>Saulo Agent</title></head>
-        <body>
-            <h1>🤖 Saulo Agent está vivo</h1>
-            <p>API del agente autónomo con búsqueda ontológica.</p>
-            <p>Usa POST /conversar para interactuar.</p>
-            <p><a href="/docs">Documentación API</a></p>
-        </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+    """Página de bienvenida CON FRONTEND"""
+    return FileResponse("static/index.html"))
 
 @app.get("/health")
 async def health_check():
