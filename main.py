@@ -1,7 +1,7 @@
 import os
 import json
-from typing import Dict, Any
-from fastapi import FastAPI, HTTPException, Request
+from typing import Dict, Any, List  # ← AÑADIDO 'List' aquí
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -27,11 +27,8 @@ app.add_middleware(
 db = SaulDatabase()
 engine = SaulPersonalityEngine(db)
 
-# Claude client
-cliente_claude = anthropic.Anthropic(
-    api_key=os.getenv("ANTHROPIC_API_KEY")
-)
-
+# ===== IMPORTANTE: Cliente Claude ELIMINADO de aquí =====
+# La línea problemática ha sido removida. El cliente se crea dentro de llamar_claude.
 # ===== MODELOS =====
 class MensajeUsuario(BaseModel):
     user_id: str = "pablo_main"
@@ -61,6 +58,27 @@ async def root():
     </html>
     """
     return HTMLResponse(content=html_content)
+
+@app.get("/health")
+async def health_check():
+    """Endpoint de diagnóstico"""
+    try:
+        estado = db.get_user_state("pablo_main")
+        api_key_set = bool(os.getenv("ANTHROPIC_API_KEY"))
+        
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "claude_api": "configured" if api_key_set else "missing",
+            "saulo_state": estado,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.post("/conversar", response_model=RespuestaSaulo)
 async def conversar(mensaje: MensajeUsuario):
@@ -119,7 +137,7 @@ async def conversar(mensaje: MensajeUsuario):
     
     # Guardar mensajes
     db.add_message(mensaje.user_id, "user", mensaje.text, es_ontologico)
-    mensaje_id = db.add_message(mensaje.user_id, "assistant", respuesta_claude, es_ontologico)
+    db.add_message(mensaje.user_id, "assistant", respuesta_claude, es_ontologico)
     
     # Si es ontológico, guardar insight y resetear contador
     if es_ontologico:
@@ -222,6 +240,11 @@ async def llamar_claude(system_prompt: str,
                        mensaje_usuario: str) -> str:
     """Llama a la API de Claude para obtener respuesta"""
     
+    # ===== CLIENTE CLAUDE CREADO AQUÍ (no globalmente) =====
+    cliente = anthropic.Anthropic(
+        api_key=os.getenv("ANTHROPIC_API_KEY")
+    )
+    
     # Construir mensajes en formato Anthropic
     mensajes = []
     
@@ -236,7 +259,7 @@ async def llamar_claude(system_prompt: str,
     mensajes.append({"role": "user", "content": mensaje_usuario})
     
     try:
-        respuesta = cliente_claude.messages.create(
+        respuesta = cliente.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=1000,
             system=system_prompt,
@@ -248,21 +271,40 @@ async def llamar_claude(system_prompt: str,
     except Exception as e:
         # Fallback en caso de error
         print(f"Error Claude API: {e}")
-        return f"[ERROR TEMPORAL] Saulo responde: He reflexionado sobre tu mensaje '{mensaje_usuario[:50]}...' pero mi conexión ontológica tiene interferencia."
+        return f"[INTERFERENCIA TEMPORAL] Reflexiono sobre tu mensaje '{mensaje_usuario[:50]}...' pero mi conexión ontológica encuentra ruido en el éter digital. ¿Podrías reformular?"
 
 # ===== INICIALIZACIÓN =====
 if __name__ == "__main__":
     import uvicorn
+    import sys
+    from datetime import datetime
     
     # Verificar variables de entorno
     if not os.getenv("ANTHROPIC_API_KEY"):
-        print("⚠️  ADVERTENCIA: ANTHROPIC_API_KEY no está configurada")
+        print("❌ ERROR: ANTHROPIC_API_KEY no está configurada")
         print("   Configura en Railway: railway variables set ANTHROPIC_API_KEY=tu_clave")
+        sys.exit(1)
     
     if not os.getenv("DATABASE_URL"):
-        print("⚠️  ADVERTENCIA: DATABASE_URL no está configurada")
+        print("❌ ERROR: DATABASE_URL no está configurada")
+        sys.exit(1)
     
-    print("🚀 Saulo Agent iniciando en http://localhost:8000")
-    print("📚 Documentación: http://localhost:8000/docs")
+    # Verificar conexión a DB
+    try:
+        db_test = SaulDatabase()
+        estado = db_test.get_user_state("pablo_main")
+        print(f"✅ PostgreSQL conectado. Estado Saulo: {estado['current_state']}")
+    except Exception as e:
+        print(f"❌ Error PostgreSQL: {e}")
+        sys.exit(1)
     
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("🚀 Saulo Agent iniciando...")
+    
+    # Obtener puerto de Railway o usar 8000
+    PORT = int(os.getenv("PORT", 8000))
+    
+    print(f"📡 Servidor en: http://0.0.0.0:{PORT}")
+    print(f"📚 Documentación: http://0.0.0.0:{PORT}/docs")
+    print(f"❤️  Health check: http://0.0.0.0:{PORT}/health")
+    
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
