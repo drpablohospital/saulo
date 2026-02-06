@@ -10,6 +10,10 @@ import anthropic  # Para Claude API
 from saulo_db import SaulDatabase
 from saulo_brain import SaulPersonalityEngine
 
+# ===== IMPORTS ADICIONALES =====
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 # ===== CONFIGURACIÓN =====
 app = FastAPI(title="Saulo Agent API", 
               description="Agente autónomo con búsqueda ontológica")
