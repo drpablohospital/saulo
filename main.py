@@ -53,7 +53,7 @@ class RespuestaSaulo(BaseModel):
 @app.get("/")
 async def root():
     """Página de bienvenida CON FRONTEND"""
-    return FileResponse("static/index.html"))
+    return FileResponse("static/index.html")
 
 @app.get("/health")
 async def health_check():
