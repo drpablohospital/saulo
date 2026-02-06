@@ -1,0 +1,347 @@
+/* Reset y base */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    grid-template-rows: 70px 1fr;
+    height: 100vh;
+    gap: 1px;
+    background: #334155;
+}
+
+/* Header */
+.header {
+    grid-column: 1 / -1;
+    background: rgba(15, 23, 42, 0.95);
+    border-bottom: 1px solid #475569;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 2rem;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo i {
+    font-size: 2rem;
+    color: #60a5fa;
+}
+
+.logo h1 {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 1.8rem;
+    font-weight: 600;
+    background: linear-gradient(90deg, #60a5fa 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.tagline {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ef4444;
+}
+
+.status-dot.connected {
+    background: #10b981;
+}
+
+/* Chat Container */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 23, 42, 0.8);
+    border-right: 1px solid #475569;
+}
+
+.messages {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.message {
+    display: flex;
+    gap: 1rem;
+    max-width: 80%;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message.user {
+    margin-left: auto;
+    flex-direction: row-reverse;
+}
+
+.message.saulo .avatar {
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+}
+
+.message.user .avatar {
+    background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.2rem;
+    color: white;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sender {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #94a3b8;
+}
+
+.text {
+    padding: 1rem 1.25rem;
+    border-radius: 1rem;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.message.saulo .text {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid #475569;
+    border-top-left-radius: 0;
+}
+
+.message.user .text {
+    background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+    color: white;
+    border-top-right-radius: 0;
+}
+
+.timestamp {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+/* Input Area */
+.input-area {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid #475569;
+    background: rgba(15, 23, 42, 0.95);
+}
+
+.input-wrapper {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+textarea {
+    flex: 1;
+    padding: 1rem 1.25rem;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid #475569;
+    border-radius: 0.75rem;
+    color: #e2e8f0;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    resize: none;
+    min-height: 50px;
+    max-height: 150px;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #60a5fa;
+}
+
+#sendButton {
+    width: 50px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border: none;
+    border-radius: 0.75rem;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#sendButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.state-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.state-btn, #resetBtn {
+    padding: 0.5rem 1rem;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid #475569;
+    border-radius: 0.5rem;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.state-btn.active {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+.info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.hint {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+/* Sidebar */
+.sidebar {
+    background: rgba(15, 23, 42, 0.95);
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+.sidebar-section {
+    margin-bottom: 2rem;
+}
+
+.sidebar-section h3 {
+    font-size: 0.95rem;
+    color: #94a3b8;
+    margin-bottom: 1rem;
+}
+
+.status-card {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid #475569;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.label {
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.value {
+    font-weight: 600;
+    font-family: 'Source Code Pro', monospace;
+}
+
+#currentState.base { color: #10b981; }
+#currentState.melancolico { color: #f59e0b; }
+#currentState.oposicion { color: #ef4444; }
+
+.insights {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid #475569;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    min-height: 150px;
+}
+
+.config {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid #475569;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+}
+
+.config-item {
+    margin-bottom: 1rem;
+}
+
+.config-item label {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+
+.config-item input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid #475569;
+    border-radius: 0.5rem;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+}
+
+#refreshState {
+    width: 100%;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    border: none;
+    border-radius: 0.5rem;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 1rem;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
