@@ -34,7 +34,7 @@ class SauloChat {
         // Contador de caracteres
         this.messageInput.addEventListener('input', () => {
             const count = this.messageInput.value.length;
-            document.getElementById('charCount').textContent = `${count}/500`;
+            document.getElementById('charCount').textContent = `${count}/2500`;
             this.autoResizeTextarea();
         });
     }
