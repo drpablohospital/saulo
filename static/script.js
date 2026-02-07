@@ -162,7 +162,7 @@ class SauloChat {
         
         messageEl.innerHTML = `
             <div class="message-content">
-                <div class="message-text markdown-body">${formattedText}</div>
+                <div class="message-text saulo-markdown">${formattedText}</div>
                 <div class="message-time">${timestamp}</div>
             </div>
         `;
