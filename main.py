@@ -5,16 +5,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import openai  # ← CAMBIADO A OPENAI
+from openai import OpenAI  # ← NUEVO IMPORT
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from datetime import datetime
 
 from saulo_db import SaulDatabase
 from saulo_brain import SaulPersonalityEngine
 
 # ===== CONFIGURACIÓN =====
-app = FastAPI(title="Saulo Agent API", 
-              description="Agente autónomo con búsqueda ontológica")
+app = FastAPI(title="Saulo Agent API")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -29,9 +29,6 @@ app.add_middleware(
 # Inicializar componentes
 db = SaulDatabase()
 engine = SaulPersonalityEngine(db)
-
-# ===== CONFIGURAR OPENAI =====
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ===== MODELOS =====
 class MensajeUsuario(BaseModel):
@@ -55,22 +52,37 @@ async def root():
 async def health_check():
     try:
         estado = db.get_user_state("pablo_main")
-        api_key_set = bool(os.getenv("OPENAI_API_KEY"))  # ← CAMBIADO
+        
+        # Probar OpenAI
+        try:
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            test_response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=5
+            )
+            openai_status = "connected"
+        except Exception as e:
+            openai_status = f"error: {str(e)[:50]}"
         
         return {
             "status": "healthy",
-            "database": "connected",
-            "openai_api": "configured" if api_key_set else "missing",
-            "saulo_state": estado
+            "database": "memory" if hasattr(db, 'users') else "postgresql",
+            "openai": openai_status,
+            "saulo_state": estado["current_state"],
+            "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
         return {
             "status": "unhealthy",
-            "error": str(e)
+            "error": str(e)[:100],
+            "timestamp": datetime.now().isoformat()
         }
 
 @app.post("/conversar", response_model=RespuestaSaulo)
 async def conversar(mensaje: MensajeUsuario):
+    """Endpoint principal para conversar con Saulo"""
+    
     # 1. Manejar comandos especiales
     if mensaje.comando_especial:
         return await manejar_comando(mensaje.user_id, mensaje.comando_especial, mensaje.text)
@@ -83,6 +95,7 @@ async def conversar(mensaje: MensajeUsuario):
     # 3. Verificar si el estado actual bloquea la respuesta
     respuesta_estado = engine.generate_state_based_response(estado_actual, contador)
     if respuesta_estado:
+        # Bloqueado por estado
         if estado_actual == "oposicion" and contador < 3:
             db.increment_counter(mensaje.user_id)
         
@@ -99,9 +112,9 @@ async def conversar(mensaje: MensajeUsuario):
     # 4. Construir historial
     historial = db.get_recent_history(mensaje.user_id, limit=10)
     
-    # 5. Llamar a OpenAI (ChatGPT)
+    # 5. Llamar a OpenAI (NUEVA VERSIÓN)
     try:
-        respuesta_chatgpt = await llamar_chatgpt(
+        respuesta_openai = await llamar_chatgpt_nuevo(
             user_id=mensaje.user_id,
             historial_mensajes=historial,
             mensaje_usuario=mensaje.text
@@ -109,23 +122,23 @@ async def conversar(mensaje: MensajeUsuario):
     except Exception as e:
         print(f"❌ Error OpenAI: {e}")
         # Si OpenAI falla, usar respuesta de respaldo
-        respuesta_chatgpt = generar_respuesta_respaldo(mensaje.text)
+        respuesta_openai = generar_respuesta_fallback(mensaje.text)
     
     # 6. Analizar si fue ontológico
     analisis_ontologico = engine.analyze_conversation_depth(
-        mensaje.text, respuesta_chatgpt
+        mensaje.text, respuesta_openai
     )
     
     # 7. Actualizar base de datos
     es_ontologico = analisis_ontologico is not None
     
     db.add_message(mensaje.user_id, "user", mensaje.text, es_ontologico)
-    db.add_message(mensaje.user_id, "assistant", respuesta_chatgpt, es_ontologico)
+    db.add_message(mensaje.user_id, "assistant", respuesta_openai, es_ontologico)
     
     if es_ontologico:
         db.add_ontological_insight(
             user_id=mensaje.user_id,
-            conversation_excerpt=f"U: {mensaje.text[:150]}... | S: {respuesta_chatgpt[:150]}...",
+            conversation_excerpt=f"U: {mensaje.text[:150]}... | S: {respuesta_openai[:150]}...",
             saulos_interpretation=analisis_ontologico.get("primary_category", "diálogo profundo"),
             primary_category=analisis_ontologico.get("primary_category"),
             source_state=estado_actual
@@ -138,7 +151,7 @@ async def conversar(mensaje: MensajeUsuario):
     
     # 8. Verificar transición de estado
     nuevo_estado = engine.should_transition_state(
-        mensaje.text, respuesta_chatgpt, estado_actual
+        mensaje.text, respuesta_openai, estado_actual
     )
     
     if nuevo_estado and nuevo_estado != estado_actual:
@@ -149,84 +162,39 @@ async def conversar(mensaje: MensajeUsuario):
     estado_final = db.get_user_state(mensaje.user_id)
     
     return RespuestaSaulo(
-        text=respuesta_chatgpt,
+        text=respuesta_openai,
         estado_actual=estado_actual,
         es_ontologico=es_ontologico,
         contador_estado=estado_final["state_counter"],
         bloqueado=False
     )
 
-@app.get("/estado/{user_id}")
-async def obtener_estado(user_id: str):
-    estado = db.get_user_state(user_id)
-    historial = db.get_recent_history(user_id, limit=5)
-    insights = db.get_ontological_insights(user_id, limit=3)
+async def llamar_chatgpt_nuevo(user_id: str, historial_mensajes: List[Dict], mensaje_usuario: str) -> str:
+    """Llama a la API de OpenAI (versión >=1.0.0)"""
     
-    return {
-        "estado": estado,
-        "historial_reciente": historial,
-        "insights_ontologicos": insights
-    }
-
-@app.post("/reset/{user_id}")
-async def resetear_saulo(user_id: str):
-    db.update_state(user_id, current_state="base")
-    db.reset_counter(user_id)
-    return {"mensaje": f"Saulo ({user_id}) resetado a estado BASE"}
-
-# ===== FUNCIONES AUXILIARES =====
-async def manejar_comando(user_id: str, comando: str, texto: str = ""):
-    if comando == "/reset":
-        db.update_state(user_id, current_state="base")
-        db.reset_counter(user_id)
-        return RespuestaSaulo(
-            text="Estado resetado a BASE. El contador de oposición ha sido reiniciado.",
-            estado_actual="base",
-            contador_estado=0
-        )
-    elif comando == "/estado":
-        if texto in ["base", "melancolico", "oposicion"]:
-            db.update_state(user_id, current_state=texto)
-            return RespuestaSaulo(
-                text=f"Estado cambiado a {texto.upper()} por comando.",
-                estado_actual=texto,
-                contador_estado=0
-            )
-    elif comando == "/debug":
-        estado = db.get_user_state(user_id)
-        return RespuestaSaulo(
-            text=f"DEBUG: Estado={estado['current_state']}, Contador={estado['state_counter']}",
-            estado_actual=estado["current_state"],
-            contador_estado=estado["state_counter"]
-        )
-    
-    return RespuestaSaulo(
-        text=f"Comando '{comando}' no reconocido.",
-        estado_actual=db.get_user_state(user_id)["current_state"],
-        bloqueado=False
+    # Inicializar cliente
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_API_KEY")
     )
-
-async def llamar_chatgpt(user_id: str, historial_mensajes: List[Dict], mensaje_usuario: str) -> str:
-    """Llama a la API de OpenAI (ChatGPT)"""
     
-    # Construir mensajes para ChatGPT
+    # Construir mensajes
     messages = []
     
-    # 1. System prompt (personalidad de Saulo)
+    # System prompt
     system_prompt = engine.build_system_prompt(user_id)
     messages.append({"role": "system", "content": system_prompt})
     
-    # 2. Historial de conversación
-    for msg in historial_mensajes[-6:]:  # Últimos 6 mensajes
+    # Historial
+    for msg in historial_mensajes[-6:]:
         role = "user" if msg["role"] == "user" else "assistant"
         messages.append({"role": role, "content": msg["content"]})
     
-    # 3. Mensaje actual del usuario
+    # Mensaje actual
     messages.append({"role": "user", "content": mensaje_usuario})
     
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # o "gpt-4" si tienes acceso
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=messages,
             max_tokens=800,
             temperature=0.7
@@ -235,10 +203,10 @@ async def llamar_chatgpt(user_id: str, historial_mensajes: List[Dict], mensaje_u
         return response.choices[0].message.content
         
     except Exception as e:
-        print(f"Error OpenAI API: {e}")
+        print(f"❌ Error OpenAI API: {e}")
         raise
 
-def generar_respuesta_respaldo(mensaje_usuario: str) -> str:
+def generar_respuesta_fallback(mensaje_usuario: str) -> str:
     """Genera respuesta de respaldo si OpenAI falla"""
     import random
     
