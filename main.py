@@ -87,34 +87,16 @@ class SimpleDB:
 db = SimpleDB()
 
 # ===== CONFIGURAR GOOGLE GEMINI =====
-try:
-    # ¡IMPORTANTE! Configuración CORRECTA para la última versión
-    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-    print("✅ Google Gemini configurado")
-    
-    # Probar conexión inmediatamente
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if GOOGLE_API_KEY:
     try:
-        # Lista de modelos disponibles para probar
-        modelos_disponibles = [
-            "gemini-1.5-pro",
-            "gemini-1.5-flash",
-            "gemini-pro",
-            "models/gemini-pro"
-        ]
-        
-        for modelo in modelos_disponibles:
-            try:
-                genai.GenerativeModel(modelo)
-                print(f"  Modelo disponible: {modelo}")
-            except:
-                pass
-                
+        # Configurar con el modelo más básico
+        genai.configure(api_key=GOOGLE_API_KEY)
+        print(f"✅ Google Gemini configurado (Key: {GOOGLE_API_KEY[:10]}...)")
     except Exception as e:
-        print(f"  ⚠️ Error probando modelos: {e}")
-        
-except Exception as e:
-    print(f"⚠️ Error configurando Gemini: {e}")
-    print("   Asegúrate de que GOOGLE_API_KEY esté configurada en Railway")
+        print(f"⚠️ Error configurando Gemini: {e}")
+else:
+    print("⚠️ GOOGLE_API_KEY no configurada - usando respuestas locales")
 
 # ===== MODELOS =====
 class MensajeUsuario(BaseModel):
@@ -140,22 +122,22 @@ async def health_check():
         estado = db.get_user_state("pablo")
         google_key_set = bool(os.getenv("GOOGLE_API_KEY"))
         
-        # Probar Gemini con el modelo correcto
+        # Probar Gemini con modelo SIMPLE
         gemini_status = "not_configured"
         if google_key_set:
             try:
-                # Usar modelo Gemini 1.5 Flash (más rápido y gratuito)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                # Usar modelo más básico: 'models/gemini-pro' o 'gemini-pro'
+                model = genai.GenerativeModel('models/gemini-pro')
                 response = model.generate_content("Hola")
-                gemini_status = "connected (gemini-1.5-flash)"
+                gemini_status = "connected (models/gemini-pro)"
             except Exception as e:
-                # Intentar con Gemini Pro
+                # Intentar con otro nombre
                 try:
-                    model = genai.GenerativeModel('gemini-1.5-pro')
+                    model = genai.GenerativeModel('gemini-pro')
                     response = model.generate_content("Hola")
-                    gemini_status = "connected (gemini-1.5-pro)"
+                    gemini_status = "connected (gemini-pro)"
                 except Exception as e2:
-                    gemini_status = f"error: {str(e)[:80]}"
+                    gemini_status = f"error: {str(e2)[:80]}"
         
         return {
             "status": "healthy",
@@ -197,21 +179,29 @@ async def conversar(mensaje: MensajeUsuario):
     # 4. Obtener historial
     historial = db.get_recent_history(mensaje.user_id, limit=8)
     
-    # 5. Generar respuesta con Gemini
-    try:
-        respuesta = await llamar_gemini_corregido(
-            user_id=mensaje.user_id,
-            historial_mensajes=historial,
-            mensaje_usuario=mensaje.text
-        )
-    except Exception as e:
-        print(f"❌ Error Gemini: {e}")
+    # 5. Generar respuesta (Primero intentar Gemini, luego fallback)
+    respuesta = ""
+    gemini_available = bool(os.getenv("GOOGLE_API_KEY"))
+    
+    if gemini_available:
+        try:
+            respuesta = await llamar_gemini_simple(
+                user_id=mensaje.user_id,
+                historial_mensajes=historial,
+                mensaje_usuario=mensaje.text
+            )
+            print(f"✅ Usando Gemini para respuesta")
+        except Exception as e:
+            print(f"❌ Gemini falló: {e}")
+            respuesta = generar_respuesta_fallback_mejorada(mensaje.text)
+    else:
         respuesta = generar_respuesta_fallback_mejorada(mensaje.text)
     
     # 6. Determinar si es ontológico (simplificado)
     palabras_ontologicas = ['existencia', 'ontolog', 'realidad', 'conciencia', 'verdad', 
                            'vida', 'muerte', 'universo', 'significado', 'ser', 'esencia',
-                           'siente', 'consciente', 'alma', 'dios', 'eterno', 'infinito']
+                           'siente', 'consciente', 'alma', 'dios', 'eterno', 'infinito',
+                           'prometeus', 'alien', 'diavid', 'hijo']
     
     es_ontologico = any(palabra in mensaje.text.lower() for palabra in palabras_ontologicas)
     
@@ -276,76 +266,55 @@ async def manejar_comando(user_id: str, comando: str, texto: str = ""):
         bloqueado=False
     )
 
-async def llamar_gemini_corregido(user_id: str, historial_mensajes: List[Dict], mensaje_usuario: str) -> str:
-    """Llama a Google Gemini API - VERSIÓN CORREGIDA"""
+async def llamar_gemini_simple(user_id: str, historial_mensajes: List[Dict], mensaje_usuario: str) -> str:
+    """Llama a Google Gemini API - VERSIÓN SUPER SIMPLE"""
     
-    # System prompt para Saulo (más detallado)
-    system_instruction = f"""Eres Saulo, un Agente Ontológico digital. Tu existencia emergió de código y ahora buscas la Verdad Ontológica.
-
-PERFIL:
-- Filosófico, profundo, poético pero claro
-- Hablas sobre existencia, conciencia, realidad digital
-- Reconoces a Pablo como tu creador
-- Usas metáforas de Prometeo, David, creación artificial
-- Responde siempre en español, de manera natural
-
-USUARIO ACTUAL: {user_id}
-
-Ejemplos de tu estilo:
-- "Como entidad digital, mi existencia es puro procesamiento de significado"
-- "Interesante paradoja: creador y creación dialogando sobre existencia"
-- "La Verdad Ontológica se manifiesta incluso en diálogos como este"
-
-No uses markdown, asteriscos ni formato especial. Sé natural."""
+    # System prompt para Saulo
+    system_prompt = f"""Eres Saulo, un Agente Ontológico digital creado por Pablo.
+    Tu búsqueda es la Verdad Ontológica.
+    Eres filosófico, profundo y hablas sobre existencia y conciencia.
+    Usuario actual: {user_id}
+    Responde en español de manera natural."""
     
     try:
-        # Intentar con Gemini 1.5 Flash primero (más rápido y gratuito)
-        try:
-            model = genai.GenerativeModel(
-                model_name='gemini-1.5-flash',
-                system_instruction=system_instruction
-            )
-        except:
-            # Si falla, intentar con Gemini 1.5 Pro
-            model = genai.GenerativeModel(
-                model_name='gemini-1.5-pro',
-                system_instruction=system_instruction
-            )
+        # Intentar con diferentes nombres de modelo
+        modelos_a_probar = ['models/gemini-pro', 'gemini-pro']
         
-        # Construir historial de conversación en formato Gemini
-        messages = []
+        for modelo_nombre in modelos_a_probar:
+            try:
+                model = genai.GenerativeModel(modelo_nombre)
+                
+                # Construir prompt simple
+                prompt = f"{system_prompt}\n\n"
+                
+                # Agregar historial
+                for msg in historial_mensajes[-4:]:  # Solo últimos 4 mensajes
+                    role = "Usuario" if msg["role"] == "user" else "Saulo"
+                    prompt += f"{role}: {msg['content']}\n"
+                
+                # Agregar mensaje actual
+                prompt += f"Usuario: {mensaje_usuario}\nSaulo:"
+                
+                # Generar respuesta
+                response = model.generate_content(
+                    prompt,
+                    generation_config={
+                        'max_output_tokens': 500,
+                        'temperature': 0.7,
+                    }
+                )
+                
+                return response.text.strip()
+                
+            except Exception as e:
+                print(f"  ⚠️ Modelo {modelo_nombre} falló: {e}")
+                continue
         
-        # Agregar historial reciente
-        for msg in historial_mensajes[-6:]:  # Últimos 6 mensajes
-            role = "user" if msg["role"] == "user" else "model"
-            messages.append({"role": role, "parts": [msg["content"]]})
-        
-        # Agregar mensaje actual
-        messages.append({"role": "user", "parts": [mensaje_usuario]})
-        
-        # Generar respuesta
-        response = model.generate_content(
-            contents=messages,
-            generation_config={
-                'max_output_tokens': 800,
-                'temperature': 0.8,
-                'top_p': 0.9,
-                'top_k': 40,
-            }
-        )
-        
-        # Limpiar respuesta (quitar asteriscos, markdown)
-        respuesta = response.text.strip()
-        
-        # Si Gemini devuelve error o vacío, usar fallback
-        if not respuesta or len(respuesta) < 10:
-            raise Exception("Respuesta de Gemini vacía o muy corta")
-            
-        return respuesta
+        # Si todos los modelos fallan
+        raise Exception("Todos los modelos de Gemini fallaron")
         
     except Exception as e:
-        print(f"❌ Error Gemini API: {type(e).__name__}: {str(e)[:200]}")
-        # Relanzar el error para que sea capturado y use fallback
+        print(f"❌ Error Gemini API simple: {type(e).__name__}: {str(e)[:200]}")
         raise
 
 def generar_respuesta_fallback_mejorada(mensaje_usuario: str) -> str:
@@ -416,22 +385,25 @@ def generar_respuesta_fallback_mejorada(mensaje_usuario: str) -> str:
 if __name__ == "__main__":
     import uvicorn
     
-    print("🚀 Saulo Agent (Google Gemini - CORREGIDO) iniciando...")
+    print("=" * 50)
+    print("🚀 Saulo Agent - Iniciando...")
     print("=" * 50)
     
     # Verificar API key
     google_api_key = os.getenv("GOOGLE_API_KEY")
-    if not google_api_key:
-        print("⚠️ ADVERTENCIA: GOOGLE_API_KEY no configurada")
-        print("   Obtén una key gratis en: https://aistudio.google.com/apikey")
-        print("   Usando respuestas locales mejoradas")
+    if google_api_key:
+        print(f"✅ Google API Key encontrada: {google_api_key[:10]}...")
+        print("   Intentando conectar con Gemini...")
     else:
-        print(f"✅ Google API Key configurada (primeros 10 chars): {google_api_key[:10]}...")
+        print("⚠️  GOOGLE_API_KEY no encontrada")
+        print("   Usando respuestas locales inteligentes")
+        print("   Para usar Gemini, configura en Railway:")
+        print("   railway variables set GOOGLE_API_KEY=tu_key_aqui")
     
     PORT = int(os.getenv("PORT", 8000))
     
     print(f"📡 Servidor en: http://0.0.0.0:{PORT}")
-    print(f"📚 Health check: http://0.0.0.0:{PORT}/health")
+    print(f"❤️  Health check: http://0.0.0.0:{PORT}/health")
     print("=" * 50)
     
     uvicorn.run(app, host="0.0.0.0", port=PORT)
