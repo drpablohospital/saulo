@@ -1,7 +1,7 @@
 class SauloChat {
     constructor() {
         // Configuración simple
-        this.apiUrl = 'http://localhost:8000'; // Cambia esto por tu URL real
+        this.apiUrl = 'https://saulo-production.up.railway.app';
         this.messagesContainer = document.getElementById('messages');
         this.messageInput = document.getElementById('messageInput');
         this.sendButton = document.getElementById('sendButton');
