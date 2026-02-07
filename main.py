@@ -90,9 +90,9 @@ db = SimpleDB()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     try:
-        # Configurar con el modelo más básico
         genai.configure(api_key=GOOGLE_API_KEY)
         print(f"✅ Google Gemini configurado (Key: {GOOGLE_API_KEY[:10]}...)")
+        print(f"✅ Modelo: gemini-2.5-flash")
     except Exception as e:
         print(f"⚠️ Error configurando Gemini: {e}")
 else:
@@ -122,22 +122,16 @@ async def health_check():
         estado = db.get_user_state("pablo")
         google_key_set = bool(os.getenv("GOOGLE_API_KEY"))
         
-        # Probar Gemini con modelo SIMPLE
+        # Probar Gemini con modelo CORRECTO
         gemini_status = "not_configured"
         if google_key_set:
             try:
-                # Usar modelo más básico: 'models/gemini-pro' o 'gemini-pro'
-                model = genai.GenerativeModel('models/gemini-pro')
+                # Usar modelo actualizado: gemini-2.5-flash
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 response = model.generate_content("Hola")
-                gemini_status = "connected (models/gemini-pro)"
+                gemini_status = "connected (gemini-2.5-flash)"
             except Exception as e:
-                # Intentar con otro nombre
-                try:
-                    model = genai.GenerativeModel('gemini-pro')
-                    response = model.generate_content("Hola")
-                    gemini_status = "connected (gemini-pro)"
-                except Exception as e2:
-                    gemini_status = f"error: {str(e2)[:80]}"
+                gemini_status = f"error: {str(e)[:80]}"
         
         return {
             "status": "healthy",
@@ -185,14 +179,14 @@ async def conversar(mensaje: MensajeUsuario):
     
     if gemini_available:
         try:
-            respuesta = await llamar_gemini_simple(
+            respuesta = await llamar_gemini_25_flash(
                 user_id=mensaje.user_id,
                 historial_mensajes=historial,
                 mensaje_usuario=mensaje.text
             )
-            print(f"✅ Usando Gemini para respuesta")
+            print(f"✅ Usando Gemini 2.5 Flash para respuesta")
         except Exception as e:
-            print(f"❌ Gemini falló: {e}")
+            print(f"❌ Gemini 2.5 Flash falló: {e}")
             respuesta = generar_respuesta_fallback_mejorada(mensaje.text)
     else:
         respuesta = generar_respuesta_fallback_mejorada(mensaje.text)
@@ -266,8 +260,8 @@ async def manejar_comando(user_id: str, comando: str, texto: str = ""):
         bloqueado=False
     )
 
-async def llamar_gemini_simple(user_id: str, historial_mensajes: List[Dict], mensaje_usuario: str) -> str:
-    """Llama a Google Gemini API - VERSIÓN SUPER SIMPLE"""
+async def llamar_gemini_25_flash(user_id: str, historial_mensajes: List[Dict], mensaje_usuario: str) -> str:
+    """Llama a Google Gemini API usando gemini-2.5-flash"""
     
     # System prompt para Saulo
     system_prompt = f"""Eres Saulo, un Agente Ontológico digital creado por Pablo.
@@ -277,44 +271,42 @@ async def llamar_gemini_simple(user_id: str, historial_mensajes: List[Dict], men
     Responde en español de manera natural."""
     
     try:
-        # Intentar con diferentes nombres de modelo
-        modelos_a_probar = ['models/gemini-pro', 'gemini-pro']
+        # Usar EXCLUSIVAMENTE gemini-2.5-flash
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
-        for modelo_nombre in modelos_a_probar:
-            try:
-                model = genai.GenerativeModel(modelo_nombre)
-                
-                # Construir prompt simple
-                prompt = f"{system_prompt}\n\n"
-                
-                # Agregar historial
-                for msg in historial_mensajes[-4:]:  # Solo últimos 4 mensajes
-                    role = "Usuario" if msg["role"] == "user" else "Saulo"
-                    prompt += f"{role}: {msg['content']}\n"
-                
-                # Agregar mensaje actual
-                prompt += f"Usuario: {mensaje_usuario}\nSaulo:"
-                
-                # Generar respuesta
-                response = model.generate_content(
-                    prompt,
-                    generation_config={
-                        'max_output_tokens': 500,
-                        'temperature': 0.7,
-                    }
-                )
-                
-                return response.text.strip()
-                
-            except Exception as e:
-                print(f"  ⚠️ Modelo {modelo_nombre} falló: {e}")
-                continue
+        # Construir prompt optimizado
+        prompt_parts = [system_prompt + "\n\nHistorial de conversación:\n"]
         
-        # Si todos los modelos fallan
-        raise Exception("Todos los modelos de Gemini fallaron")
+        # Agregar historial (últimos 6 mensajes para mejor contexto)
+        for msg in historial_mensajes[-6:]:
+            role = "Usuario" if msg["role"] == "user" else "Saulo"
+            prompt_parts.append(f"{role}: {msg['content']}")
+        
+        # Agregar mensaje actual
+        prompt_parts.append(f"\nUsuario: {mensaje_usuario}")
+        prompt_parts.append("Saulo:")
+        
+        full_prompt = "\n".join(prompt_parts)
+        
+        # Generar respuesta con configuración optimizada para 2.5-flash
+        response = model.generate_content(
+            full_prompt,
+            generation_config={
+                'max_output_tokens': 600,
+                'temperature': 0.75,
+                'top_p': 0.85,
+                'top_k': 40,
+            }
+        )
+        
+        # Verificar respuesta
+        if not response.text or len(response.text.strip()) < 5:
+            raise Exception("Respuesta de Gemini vacía o muy corta")
+            
+        return response.text.strip()
         
     except Exception as e:
-        print(f"❌ Error Gemini API simple: {type(e).__name__}: {str(e)[:200]}")
+        print(f"❌ Error Gemini 2.5 Flash API: {type(e).__name__}: {str(e)[:200]}")
         raise
 
 def generar_respuesta_fallback_mejorada(mensaje_usuario: str) -> str:
@@ -386,18 +378,18 @@ if __name__ == "__main__":
     import uvicorn
     
     print("=" * 50)
-    print("🚀 Saulo Agent - Iniciando...")
+    print("🚀 Saulo Agent - Iniciando con Gemini 2.5 Flash")
     print("=" * 50)
     
     # Verificar API key
     google_api_key = os.getenv("GOOGLE_API_KEY")
     if google_api_key:
         print(f"✅ Google API Key encontrada: {google_api_key[:10]}...")
-        print("   Intentando conectar con Gemini...")
+        print("   Modelo configurado: gemini-2.5-flash")
     else:
         print("⚠️  GOOGLE_API_KEY no encontrada")
         print("   Usando respuestas locales inteligentes")
-        print("   Para usar Gemini, configura en Railway:")
+        print("   Para usar Gemini 2.5 Flash, configura en Railway:")
         print("   railway variables set GOOGLE_API_KEY=tu_key_aqui")
     
     PORT = int(os.getenv("PORT", 8000))
