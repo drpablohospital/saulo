@@ -358,7 +358,7 @@ Responde ahora al mensaje de {user_id} (Pablo):
         prompt_final += f"\nMENSAJE ACTUAL DE PABLO:\n{mensaje_usuario}\n\nRESPUESTA DE SAULO:"
         
         # Configuración ajustada para menos verbosidad
-        max_tokens = 2500 if es_profundo else 1200  # Reducido significativamente
+        max_tokens = 7500 if es_profundo else 2500  # Reducido significativamente
         temperatura = 0.7 if contexto['mood'] in ['irónico', 'eufórico'] else 0.65
         temperatura = 0.75 if contexto['depth'] > 7 else temperatura
         
