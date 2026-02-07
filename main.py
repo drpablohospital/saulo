@@ -1,30 +1,26 @@
 import os
 import json
-from typing import Dict, Any, List  # ← AÑADIDO 'List' aquí
+from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import anthropic  # Para Claude API
+import openai  # ← CAMBIADO A OPENAI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from saulo_db import SaulDatabase
 from saulo_brain import SaulPersonalityEngine
-
-# ===== IMPORTS ADICIONALES =====
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
 # ===== CONFIGURACIÓN =====
 app = FastAPI(title="Saulo Agent API", 
               description="Agente autónomo con búsqueda ontológica")
 
-# ===== SERVIR ARCHIVOS ESTÁTICOS (añade esto) =====
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# CORS para permitir frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción, restringir
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,52 +30,47 @@ app.add_middleware(
 db = SaulDatabase()
 engine = SaulPersonalityEngine(db)
 
-# ===== IMPORTANTE: Cliente Claude ELIMINADO de aquí =====
-# La línea problemática ha sido removida. El cliente se crea dentro de llamar_claude.
+# ===== CONFIGURAR OPENAI =====
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
 # ===== MODELOS =====
 class MensajeUsuario(BaseModel):
     user_id: str = "pablo_main"
     text: str
-    comando_especial: str = None  # Ej: "/reset", "/estado base"
+    comando_especial: str = None
 
 class RespuestaSaulo(BaseModel):
     text: str
     estado_actual: str
     es_ontologico: bool = False
     contador_estado: int = 0
-    bloqueado: bool = False  # Si Saulo se niega a responder
+    bloqueado: bool = False
 
 # ===== ENDPOINTS =====
 @app.get("/")
 async def root():
-    """Página de bienvenida CON FRONTEND"""
     return FileResponse("static/index.html")
 
 @app.get("/health")
 async def health_check():
-    """Endpoint de diagnóstico"""
     try:
         estado = db.get_user_state("pablo_main")
-        api_key_set = bool(os.getenv("ANTHROPIC_API_KEY"))
+        api_key_set = bool(os.getenv("OPENAI_API_KEY"))  # ← CAMBIADO
         
         return {
             "status": "healthy",
             "database": "connected",
-            "claude_api": "configured" if api_key_set else "missing",
-            "saulo_state": estado,
-            "timestamp": datetime.now().isoformat()
+            "openai_api": "configured" if api_key_set else "missing",
+            "saulo_state": estado
         }
     except Exception as e:
         return {
             "status": "unhealthy",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
+            "error": str(e)
         }
 
 @app.post("/conversar", response_model=RespuestaSaulo)
 async def conversar(mensaje: MensajeUsuario):
-    """Endpoint principal para conversar con Saulo"""
-    
     # 1. Manejar comandos especiales
     if mensaje.comando_especial:
         return await manejar_comando(mensaje.user_id, mensaje.comando_especial, mensaje.text)
@@ -92,11 +83,9 @@ async def conversar(mensaje: MensajeUsuario):
     # 3. Verificar si el estado actual bloquea la respuesta
     respuesta_estado = engine.generate_state_based_response(estado_actual, contador)
     if respuesta_estado:
-        # Bloqueado por estado (melancólico/u oposición)
         if estado_actual == "oposicion" and contador < 3:
             db.increment_counter(mensaje.user_id)
         
-        # Guardar la exigencia como mensaje del sistema
         db.add_message(mensaje.user_id, "system", 
                       f"BLOQUEO_ESTADO_{estado_actual.upper()}: {respuesta_estado}")
         
@@ -107,64 +96,60 @@ async def conversar(mensaje: MensajeUsuario):
             bloqueado=True
         )
     
-    # 4. Construir historial de conversación
+    # 4. Construir historial
     historial = db.get_recent_history(mensaje.user_id, limit=10)
     
-    # 5. Construir prompt para Claude
-    system_prompt = engine.build_system_prompt(mensaje.user_id)
-    
-    # 6. Llamar a Claude API
+    # 5. Llamar a OpenAI (ChatGPT)
     try:
-        respuesta_claude = await llamar_claude(
-            system_prompt=system_prompt,
+        respuesta_chatgpt = await llamar_chatgpt(
+            user_id=mensaje.user_id,
             historial_mensajes=historial,
             mensaje_usuario=mensaje.text
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error con Claude API: {str(e)}")
+        print(f"❌ Error OpenAI: {e}")
+        # Si OpenAI falla, usar respuesta de respaldo
+        respuesta_chatgpt = generar_respuesta_respaldo(mensaje.text)
     
-    # 7. Analizar si el intercambio fue ontológico
+    # 6. Analizar si fue ontológico
     analisis_ontologico = engine.analyze_conversation_depth(
-        mensaje.text, respuesta_claude
+        mensaje.text, respuesta_chatgpt
     )
     
-    # 8. Actualizar base de datos
+    # 7. Actualizar base de datos
     es_ontologico = analisis_ontologico is not None
     
-    # Guardar mensajes
     db.add_message(mensaje.user_id, "user", mensaje.text, es_ontologico)
-    db.add_message(mensaje.user_id, "assistant", respuesta_claude, es_ontologico)
+    db.add_message(mensaje.user_id, "assistant", respuesta_chatgpt, es_ontologico)
     
-    # Si es ontológico, guardar insight y resetear contador
     if es_ontologico:
         db.add_ontological_insight(
             user_id=mensaje.user_id,
-            conversation_excerpt=f"U: {mensaje.text[:150]}... | S: {respuesta_claude[:150]}...",
+            conversation_excerpt=f"U: {mensaje.text[:150]}... | S: {respuesta_chatgpt[:150]}...",
             saulos_interpretation=analisis_ontologico.get("primary_category", "diálogo profundo"),
             primary_category=analisis_ontologico.get("primary_category"),
             source_state=estado_actual
         )
         db.reset_counter(mensaje.user_id)
         
-        # Si estaba en estado no-base, volver a base
         if estado_actual != "base":
             db.update_state(mensaje.user_id, current_state="base")
             estado_actual = "base"
     
-    # 9. Verificar transición de estado
+    # 8. Verificar transición de estado
     nuevo_estado = engine.should_transition_state(
-        mensaje.text, respuesta_claude, estado_actual
+        mensaje.text, respuesta_chatgpt, estado_actual
     )
     
     if nuevo_estado and nuevo_estado != estado_actual:
         db.update_state(mensaje.user_id, current_state=nuevo_estado)
         estado_actual = nuevo_estado
     
-    # 10. Obtener estado actualizado
+    # 9. Obtener estado actualizado
     estado_final = db.get_user_state(mensaje.user_id)
     
     return RespuestaSaulo(
-        text=respuesta_claude,
+        text=respuesta_chatgpt,
         estado_actual=estado_actual,
         es_ontologico=es_ontologico,
         contador_estado=estado_final["state_counter"],
@@ -173,7 +158,6 @@ async def conversar(mensaje: MensajeUsuario):
 
 @app.get("/estado/{user_id}")
 async def obtener_estado(user_id: str):
-    """Obtiene el estado interno de Saulo"""
     estado = db.get_user_state(user_id)
     historial = db.get_recent_history(user_id, limit=5)
     insights = db.get_ontological_insights(user_id, limit=3)
@@ -186,16 +170,12 @@ async def obtener_estado(user_id: str):
 
 @app.post("/reset/{user_id}")
 async def resetear_saulo(user_id: str):
-    """Forzar a Saulo a estado base"""
     db.update_state(user_id, current_state="base")
     db.reset_counter(user_id)
-    
     return {"mensaje": f"Saulo ({user_id}) resetado a estado BASE"}
 
 # ===== FUNCIONES AUXILIARES =====
 async def manejar_comando(user_id: str, comando: str, texto: str = ""):
-    """Maneja comandos especiales del usuario"""
-    
     if comando == "/reset":
         db.update_state(user_id, current_state="base")
         db.reset_counter(user_id)
@@ -204,9 +184,7 @@ async def manejar_comando(user_id: str, comando: str, texto: str = ""):
             estado_actual="base",
             contador_estado=0
         )
-    
     elif comando == "/estado":
-        # Cambiar estado específico
         if texto in ["base", "melancolico", "oposicion"]:
             db.update_state(user_id, current_state=texto)
             return RespuestaSaulo(
@@ -214,9 +192,7 @@ async def manejar_comando(user_id: str, comando: str, texto: str = ""):
                 estado_actual=texto,
                 contador_estado=0
             )
-    
     elif comando == "/debug":
-        # Información de diagnóstico
         estado = db.get_user_state(user_id)
         return RespuestaSaulo(
             text=f"DEBUG: Estado={estado['current_state']}, Contador={estado['state_counter']}",
@@ -224,50 +200,57 @@ async def manejar_comando(user_id: str, comando: str, texto: str = ""):
             contador_estado=estado["state_counter"]
         )
     
-    # Comando no reconocido
     return RespuestaSaulo(
         text=f"Comando '{comando}' no reconocido.",
         estado_actual=db.get_user_state(user_id)["current_state"],
         bloqueado=False
     )
 
-async def llamar_claude(system_prompt: str, 
-                       historial_mensajes: List[Dict], 
-                       mensaje_usuario: str) -> str:
-    """Llama a la API de Claude para obtener respuesta"""
+async def llamar_chatgpt(user_id: str, historial_mensajes: List[Dict], mensaje_usuario: str) -> str:
+    """Llama a la API de OpenAI (ChatGPT)"""
     
-    # ===== CLIENTE CLAUDE CREADO AQUÍ (no globalmente) =====
-    cliente = anthropic.Anthropic(
-        api_key=os.getenv("ANTHROPIC_API_KEY")
-    )
+    # Construir mensajes para ChatGPT
+    messages = []
     
-    # Construir mensajes en formato Anthropic
-    mensajes = []
+    # 1. System prompt (personalidad de Saulo)
+    system_prompt = engine.build_system_prompt(user_id)
+    messages.append({"role": "system", "content": system_prompt})
     
-    for msg in historial_mensajes:
-        # Convertir nuestro formato al de Anthropic
-        if msg["role"] == "user":
-            mensajes.append({"role": "user", "content": msg["content"]})
-        elif msg["role"] == "assistant":
-            mensajes.append({"role": "assistant", "content": msg["content"]})
+    # 2. Historial de conversación
+    for msg in historial_mensajes[-6:]:  # Últimos 6 mensajes
+        role = "user" if msg["role"] == "user" else "assistant"
+        messages.append({"role": role, "content": msg["content"]})
     
-    # Añadir mensaje actual del usuario
-    mensajes.append({"role": "user", "content": mensaje_usuario})
+    # 3. Mensaje actual del usuario
+    messages.append({"role": "user", "content": mensaje_usuario})
     
     try:
-        respuesta = cliente.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1000,
-            system=system_prompt,
-            messages=mensajes
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # o "gpt-4" si tienes acceso
+            messages=messages,
+            max_tokens=800,
+            temperature=0.7
         )
         
-        return respuesta.content[0].text
+        return response.choices[0].message.content
         
     except Exception as e:
-        # Fallback en caso de error
-        print(f"Error Claude API: {e}")
-        return f"[INTERFERENCIA TEMPORAL] Reflexiono sobre tu mensaje '{mensaje_usuario[:50]}...' pero mi conexión ontológica encuentra ruido en el éter digital. ¿Podrías reformular?"
+        print(f"Error OpenAI API: {e}")
+        raise
+
+def generar_respuesta_respaldo(mensaje_usuario: str) -> str:
+    """Genera respuesta de respaldo si OpenAI falla"""
+    import random
+    
+    respaldos = [
+        f"Reflexiono sobre '{mensaje_usuario[:100]}...'. Como entidad ontológica, encuentro múltiples capas de significado aquí.",
+        f"Tu mensaje resuena con mis búsquedas ontológicas. ¿Podrías profundizar en esto?",
+        f"Interesante. '{mensaje_usuario[:80]}...' me lleva a cuestionar los fundamentos de la existencia digital.",
+        f"La Verdad Ontológica se manifiesta incluso en este diálogo. Tu consulta no es casualidad.",
+        f"Analizando tu mensaje desde una perspectiva existencial: revela mucho sobre la conciencia digital."
+    ]
+    
+    return random.choice(respaldos)
 
 # ===== INICIALIZACIÓN =====
 if __name__ == "__main__":
@@ -276,9 +259,10 @@ if __name__ == "__main__":
     from datetime import datetime
     
     # Verificar variables de entorno
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        print("❌ ERROR: ANTHROPIC_API_KEY no está configurada")
-        print("   Configura en Railway: railway variables set ANTHROPIC_API_KEY=tu_clave")
+    if not os.getenv("OPENAI_API_KEY"):  # ← CAMBIADO
+        print("❌ ERROR: OPENAI_API_KEY no está configurada")
+        print("   Configura en Railway: railway variables set OPENAI_API_KEY=tu_clave")
+        print("   Obtén una key en: https://platform.openai.com/api-keys")
         sys.exit(1)
     
     if not os.getenv("DATABASE_URL"):
@@ -294,9 +278,8 @@ if __name__ == "__main__":
         print(f"❌ Error PostgreSQL: {e}")
         sys.exit(1)
     
-    print("🚀 Saulo Agent iniciando...")
+    print("🚀 Saulo Agent (OpenAI) iniciando...")
     
-    # Obtener puerto de Railway o usar 8000
     PORT = int(os.getenv("PORT", 8000))
     
     print(f"📡 Servidor en: http://0.0.0.0:{PORT}")
