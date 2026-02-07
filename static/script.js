@@ -61,7 +61,7 @@ class SauloChat {
         }
     }
     
-        async sendMessage() {
+    async sendMessage() {
         const text = this.messageInput.value.trim();
         if (!text) return;
         
@@ -142,6 +142,7 @@ class SauloChat {
         }, 1000 + Math.random() * 1000);
     }
     
+    // Reemplazar la función addMessage con versión con Markdown:
     addMessage(type, text, sender = null) {
         const messageEl = document.createElement('div');
         const timestamp = new Date().toLocaleTimeString('es-ES', {
@@ -155,9 +156,13 @@ class SauloChat {
         }
         
         messageEl.className = `message ${type}`;
+        
+        // Convertir Markdown a HTML (simple)
+        const formattedText = this.renderMarkdown(text);
+        
         messageEl.innerHTML = `
             <div class="message-content">
-                <div class="message-text">${this.escapeHtml(text)}</div>
+                <div class="message-text markdown-body">${formattedText}</div>
                 <div class="message-time">${timestamp}</div>
             </div>
         `;
@@ -166,12 +171,36 @@ class SauloChat {
         messageEl.scrollIntoView({ behavior: 'smooth' });
     }
     
+    // Añadir función para renderizar Markdown básico
+    renderMarkdown(text) {
+        // Escape HTML primero
+        let html = this.escapeHtml(text);
+        
+        // Conversiones básicas de Markdown
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+        
+        // Listas
+        html = html.replace(/^\s*\*\s+(.*)$/gm, '<li>$1</li>');
+        html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+        
+        // Bloques de código (muy básico)
+        html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        
+        // Párrafos
+        html = html.replace(/\n\n/g, '</p><p>');
+        html = '<p>' + html + '</p>';
+        
+        return html;
+    }
+    
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
-}
+}  // <-- ¡ESTA LÍNEA FALTABA! Cierre de la clase SauloChat
 
 // Inicializar cuando se cargue la página
 document.addEventListener('DOMContentLoaded', () => {
