@@ -61,21 +61,18 @@ class SauloChat {
         }
     }
     
-    async sendMessage() {
+        async sendMessage() {
         const text = this.messageInput.value.trim();
         if (!text) return;
         
-        // Mostrar mensaje del usuario
         this.addMessage('user', text);
-        
-        // Limpiar input
         this.messageInput.value = '';
-        this.messageInput.style.height = '60px';
-        document.getElementById('charCount').textContent = '0/500';
         this.sendButton.disabled = true;
         
         try {
-            // Intentar conectar a la API real
+            console.log('📤 Enviando a:', `${this.apiUrl}/conversar`);
+            console.log('📦 Datos:', { user_id: 'pablo', text: text });
+            
             const response = await fetch(`${this.apiUrl}/conversar`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -85,12 +82,42 @@ class SauloChat {
                 })
             });
             
-            const data = await response.json();
-            this.addMessage('saulo', data.text, 'Saulo');
+            console.log('📥 Respuesta status:', response.status);
+            console.log('📥 Respuesta headers:', response.headers);
+            
+            // OBTENER EL TEXTO CRUDO PRIMERO
+            const responseText = await response.text();
+            console.log('📥 Respuesta texto crudo:', responseText);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${responseText}`);
+            }
+            
+            // Intentar parsear como JSON
+            let data;
+            try {
+                data = JSON.parse(responseText);
+                console.log('📥 Respuesta JSON:', data);
+            } catch (jsonError) {
+                console.error('❌ Error parseando JSON:', jsonError);
+                console.error('❌ Texto recibido:', responseText);
+                throw new Error(`Respuesta no es JSON válido: ${responseText.substring(0, 100)}...`);
+            }
+            
+            // Verificar que tenga el campo 'text'
+            if (data && data.text) {
+                this.addMessage('saulo', data.text, 'Saulo');
+            } else {
+                console.warn('⚠️ Respuesta sin campo "text":', data);
+                this.addMessage('saulo', 
+                    `[Respuesta API: ${JSON.stringify(data).substring(0, 100)}...]`, 
+                    'Saulo'
+                );
+            }
             
         } catch (error) {
-            // Modo simulación si la API falla
-            console.log('Usando respuesta simulada:', error.message);
+            console.error('❌ Error completo:', error);
+            this.addMessage('system', `Error: ${error.message}`);
             this.simulateSauloResponse(text);
         } finally {
             this.sendButton.disabled = false;
