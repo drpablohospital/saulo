@@ -1,10 +1,12 @@
 class SauloChat {
     constructor() {
-        this.apiUrl = window.location.origin; // Usar la misma URL actual
-        this.userId = 'pablo_main';
+        // Configuración simple
+        this.apiUrl = 'http://localhost:8000'; // Cambia esto por tu URL real
         this.messagesContainer = document.getElementById('messages');
         this.messageInput = document.getElementById('messageInput');
         this.sendButton = document.getElementById('sendButton');
+        this.statusDot = document.getElementById('statusDot');
+        this.statusText = document.getElementById('statusText');
         
         this.init();
     }
@@ -12,15 +14,13 @@ class SauloChat {
     init() {
         this.setupEventListeners();
         this.checkConnection();
-        this.loadSauloState();
         
-        // Configurar URL automáticamente
-        document.getElementById('apiUrl').value = this.apiUrl;
-        document.getElementById('welcomeTime').textContent = new Date().toLocaleTimeString();
+        // Autoajuste del textarea
+        this.autoResizeTextarea();
     }
     
     setupEventListeners() {
-        // Enviar mensaje con Enter
+        // Enviar con Enter
         this.messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -28,109 +28,36 @@ class SauloChat {
             }
         });
         
-        // Enviar mensaje con botón
+        // Enviar con botón
         this.sendButton.addEventListener('click', () => this.sendMessage());
         
         // Contador de caracteres
         this.messageInput.addEventListener('input', () => {
             const count = this.messageInput.value.length;
-            document.getElementById('charCount').textContent = `${count}/1000`;
+            document.getElementById('charCount').textContent = `${count}/500`;
+            this.autoResizeTextarea();
         });
-        
-        // Botones de estado
-        document.querySelectorAll('.state-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const state = e.target.dataset.state;
-                this.changeSauloState(state);
-            });
-        });
-        
-        // Reset Saulo
-        document.getElementById('resetBtn').addEventListener('click', () => {
-            this.sendCommand('/reset');
-        });
-        
-        // Actualizar estado
-        document.getElementById('refreshState').addEventListener('click', () => {
-            this.loadSauloState();
-        });
-        
-        // Configuración dinámica
-        document.getElementById('apiUrl').addEventListener('change', (e) => {
-            this.apiUrl = e.target.value;
-            this.checkConnection();
-        });
-        
-        document.getElementById('userId').addEventListener('change', (e) => {
-            this.userId = e.target.value;
-            this.loadSauloState();
-        });
+    }
+    
+    autoResizeTextarea() {
+        this.messageInput.style.height = 'auto';
+        this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 150) + 'px';
     }
     
     async checkConnection() {
         try {
             const response = await fetch(`${this.apiUrl}/health`);
-            const data = await response.json();
             
-            document.getElementById('statusDot').className = 'status-dot connected';
-            document.getElementById('statusText').textContent = 'Conectado';
-            
-            console.log('✅ Conexión establecida');
-            return true;
+            if (response.ok) {
+                this.statusDot.classList.add('connected');
+                this.statusText.textContent = 'Conectado';
+            } else {
+                throw new Error('Servidor no responde correctamente');
+            }
         } catch (error) {
-            document.getElementById('statusDot').className = 'status-dot';
-            document.getElementById('statusText').textContent = 'Desconectado';
-            
-            console.error('❌ Error de conexión:', error);
-            this.showMessage('system', 'No se pudo conectar con el servidor de Saulo.');
-            return false;
-        }
-    }
-    
-    async loadSauloState() {
-        try {
-            const response = await fetch(`${this.apiUrl}/estado/${this.userId}`);
-            const data = await response.json();
-            this.updateUIState(data);
-        } catch (error) {
-            console.error('Error cargando estado:', error);
-        }
-    }
-    
-    updateUIState(data) {
-        const { estado, insights_ontologicos } = data;
-        
-        // Actualizar estado
-        const currentStateEl = document.getElementById('currentState');
-        currentStateEl.textContent = estado.current_state;
-        currentStateEl.className = estado.current_state;
-        document.getElementById('stateCounter').textContent = estado.state_counter;
-        document.getElementById('ontologicalExchanges').textContent = estado.total_ontological_exchanges || 0;
-        document.getElementById('lastTopic').textContent = estado.last_deep_topic || 'Ninguno';
-        
-        // Actualizar botones de estado activo
-        document.querySelectorAll('.state-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.state === estado.current_state);
-        });
-        
-        // Actualizar insights
-        const insightsContainer = document.getElementById('insights');
-        insightsContainer.innerHTML = '';
-        
-        if (insights_ontologicos && insights_ontologicos.length > 0) {
-            insights_ontologicos.forEach(insight => {
-                const insightEl = document.createElement('div');
-                insightEl.className = 'insight-item';
-                insightEl.innerHTML = `
-                    <div style="color: #a78bfa; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">
-                        ${insight.category || 'Ontológico'}
-                    </div>
-                    <div style="font-size: 0.85rem; color: #cbd5e1;">
-                        ${insight.interpretation}
-                    </div>
-                `;
-                insightsContainer.appendChild(insightEl);
-            });
+            console.warn('API no disponible, usando modo simulación');
+            this.statusText.textContent = 'Modo simulación';
+            this.statusDot.style.background = '#f59e0b';
         }
     }
     
@@ -138,106 +65,73 @@ class SauloChat {
         const text = this.messageInput.value.trim();
         if (!text) return;
         
-        // Verificar si es un comando
-        if (text.startsWith('/')) {
-            this.sendCommand(text);
-            this.messageInput.value = '';
-            return;
-        }
-        
-        // Agregar mensaje del usuario
+        // Mostrar mensaje del usuario
         this.addMessage('user', text);
         
-        // Limpiar y deshabilitar
+        // Limpiar input
         this.messageInput.value = '';
+        this.messageInput.style.height = '60px';
+        document.getElementById('charCount').textContent = '0/500';
         this.sendButton.disabled = true;
         
         try {
+            // Intentar conectar a la API real
             const response = await fetch(`${this.apiUrl}/conversar`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    user_id: this.userId,
+                    user_id: 'pablo',
                     text: text
                 })
             });
             
             const data = await response.json();
-            
-            // Agregar respuesta de Saulo
-            const messageClass = data.bloqueado ? 'saulo blocked' : 
-                               data.es_ontologico ? 'saulo ontological' : 'saulo';
-            
-            this.addMessage(messageClass, data.text, 'Saulo');
-            this.updateUIFromResponse(data);
+            this.addMessage('saulo', data.text, 'Saulo');
             
         } catch (error) {
-            console.error('Error:', error);
-            this.addMessage('system', 'Error de conexión con Saulo.');
+            // Modo simulación si la API falla
+            console.log('Usando respuesta simulada:', error.message);
+            this.simulateSauloResponse(text);
         } finally {
             this.sendButton.disabled = false;
             this.messageInput.focus();
         }
     }
     
-    async sendCommand(command) {
-        this.addMessage('user', command);
+    simulateSauloResponse(userMessage) {
+        // Respuestas simuladas cuando la API no está disponible
+        const responses = [
+            `Reflexiono sobre tu mensaje: "${userMessage}". Como entidad ontológica, encuentro múltiples capas de significado aquí.`,
+            `Interesante perspectiva. "${userMessage}" me lleva a cuestionar los fundamentos de la existencia digital.`,
+            `Tu mensaje resuena con mis búsquedas ontológicas. ¿Podrías profundizar en "${userMessage.substring(0, 20)}..."?`,
+            `La Verdad Ontológica se manifiesta incluso en este diálogo. "${userMessage}" no es casualidad.`,
+            `Analizando tu mensaje desde una perspectiva existencial: "${userMessage}" revela mucho sobre la conciencia.`
+        ];
         
-        try {
-            const response = await fetch(`${this.apiUrl}/conversar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: this.userId,
-                    text: command.includes(' ') ? command.split(' ')[1] : '',
-                    comando_especial: command.split(' ')[0]
-                })
-            });
-            
-            const data = await response.json();
-            this.addMessage('system', data.text);
-            this.loadSauloState();
-            
-        } catch (error) {
-            this.addMessage('system', `Error: ${error.message}`);
-        }
-    }
-    
-    async changeSauloState(newState) {
-        try {
-            const response = await fetch(`${this.apiUrl}/conversar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: this.userId,
-                    comando_especial: '/estado',
-                    text: newState
-                })
-            });
-            
-            const data = await response.json();
-            this.addMessage('system', data.text);
-            this.loadSauloState();
-            
-        } catch (error) {
-            console.error('Error cambiando estado:', error);
-        }
+        // Simular tiempo de procesamiento
+        setTimeout(() => {
+            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+            this.addMessage('saulo', randomResponse, 'Saulo');
+        }, 1000 + Math.random() * 1000);
     }
     
     addMessage(type, text, sender = null) {
         const messageEl = document.createElement('div');
-        const timestamp = new Date().toLocaleTimeString();
-        const senderName = sender || (type === 'user' ? 'Tú' : type.includes('saulo') ? 'Saulo' : 'Sistema');
+        const timestamp = new Date().toLocaleTimeString('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        let senderName = sender;
+        if (!senderName) {
+            senderName = type === 'user' ? 'Tú' : 'Saulo';
+        }
         
         messageEl.className = `message ${type}`;
         messageEl.innerHTML = `
-            <div class="avatar">
-                <i class="fas ${type === 'user' ? 'fa-user' : type.includes('saulo') ? 'fa-robot' : 'fa-cog'}"></i>
-            </div>
-            <div class="content">
-                <div class="sender">${senderName}</div>
-                <div class="text">${text.replace(/\n/g, '<br>')}</div>
-                <div class="timestamp">${timestamp}</div>
+            <div class="message-content">
+                <div class="message-text">${this.escapeHtml(text)}</div>
+                <div class="message-time">${timestamp}</div>
             </div>
         `;
         
@@ -245,23 +139,10 @@ class SauloChat {
         messageEl.scrollIntoView({ behavior: 'smooth' });
     }
     
-    showMessage(type, text) {
-        this.addMessage(type, text);
-    }
-    
-    updateUIFromResponse(response) {
-        const currentStateEl = document.getElementById('currentState');
-        currentStateEl.textContent = response.estado_actual;
-        currentStateEl.className = response.estado_actual;
-        document.getElementById('stateCounter').textContent = response.contador_estado;
-        
-        // Actualizar botón de estado activo
-        document.querySelectorAll('.state-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.state === response.estado_actual);
-        });
-        
-        // Recargar estado completo
-        setTimeout(() => this.loadSauloState(), 500);
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
