@@ -15,14 +15,17 @@
         <div class="chat-header">
             <div class="saulo-info">
                 <div class="avatar">
-                    <i class="fas fa-robot"></i>
+                    <div class="avatar-inner">
+                        <div class="avatar-icon">S</div>
+                        <div class="avatar-pulse"></div>
+                    </div>
                 </div>
                 <div class="saulo-text">
                     <h1>Saulo</h1>
-                    <p class="subtitle">Agente Ontológico</p>
+                    <p class="subtitle">Saulo de Tarso, agente ontológico.</p>
                     <div class="status">
                         <span class="status-dot" id="statusDot"></span>
-                        <span id="statusText">Conectando...</span>
+                        <span id="statusText">Invocando...</span>
                     </div>
                 </div>
             </div>
@@ -48,10 +51,10 @@
                     id="messageInput" 
                     placeholder="Escribe tu mensaje a Saulo..."
                     rows="1"
-                    maxlength="2500"
+                    maxlength="7500"
                 ></textarea>
                 <div class="input-controls">
-                    <span class="char-count" id="charCount">0/2500</span>
+                    <span class="char-count" id="charCount">0/7500</span>
                     <button id="sendButton" class="send-btn">
                         <i class="fas fa-paper-plane"></i>
                     </button>
