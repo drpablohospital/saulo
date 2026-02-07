@@ -347,8 +347,8 @@ Usuario actual: {user_id} (Pablo, mi creador y interlocutor principal)
         prompt_final += f"\nNUEVO MENSAJE DE {user_id.upper()}:\n{mensaje_usuario}\n\nMI RESPUESTA COMO SAULO:"
         
         # Determinar tokens basado en profundidad
-        max_tokens = 1200 if es_profundo else 800
-        temperatura = 0.8 if contexto['mood'] in ['irónico', 'eufórico'] else 0.7
+        max_tokens = 5999 if es_profundo else 2000
+        temperatura = 0.85 if contexto['mood'] in ['irónico', 'eufórico'] else 0.7
         
         response = model.generate_content(
             prompt_final,
