@@ -8,6 +8,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from datetime import datetime
 import google.generativeai as genai
+import aiohttp
+import asyncio
+import random
 
 # ===== CONFIGURACIÓN =====
 app = FastAPI(title="Saulo Agent API")
@@ -22,11 +25,187 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ===== BASE DE DATOS CON ESTADOS DE ÁNIMO =====
+# ===== SISTEMA HÍBRIDO OLLAMA + GEMINI =====
+class HybridAI:
+    def __init__(self):
+        self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        self.ollama_model = os.getenv("OLLAMA_MODEL", "mistral:7b-instruct-q4_K_M")
+        self.gemini_enabled = bool(os.getenv("GOOGLE_API_KEY"))
+        
+        print("=" * 60)
+        print("🤖 SISTEMA HÍBRIDO INICIALIZADO")
+        print(f"   Ollama URL: {self.ollama_url}")
+        print(f"   Ollama Model: {self.ollama_model}")
+        print(f"   Gemini: {'✅ Habilitado' if self.gemini_enabled else '❌ No configurado'}")
+        print("=" * 60)
+    
+    async def generate_response(self, prompt: str, es_profundo: bool, 
+                              contexto: Dict) -> str:
+        """Sistema en cascada inteligente"""
+        
+        # Intentar Ollama primero (si no es extremadamente profundo o estamos probando)
+        if not es_profundo or contexto['depth'] < 8:
+            try:
+                respuesta = await self._call_ollama(prompt, contexto)
+                if respuesta and len(respuesta.strip()) > 20:
+                    print("✅ Respuesta de Ollama (local)")
+                    return respuesta
+            except Exception as e:
+                print(f"⚠️ Ollama falló: {str(e)[:80]}")
+        
+        # Si es profundo y Gemini está disponible, usarlo
+        if self.gemini_enabled and es_profundo:
+            try:
+                respuesta = await self._call_gemini(prompt, contexto)
+                if respuesta:
+                    print("✅ Respuesta de Gemini (nube)")
+                    return respuesta
+            except Exception as e:
+                print(f"⚠️ Gemini falló: {str(e)[:80]}")
+        
+        # Fallback local mejorado
+        print("⚠️ Usando fallback local")
+        return await self._fallback_local(prompt, contexto)
+    
+    async def _call_ollama(self, prompt: str, contexto: Dict) -> str:
+        """Llama al modelo local Ollama"""
+        try:
+            timeout = aiohttp.ClientTimeout(total=60)
+            
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                # Prompt optimizado para Ollama
+                ollama_prompt = self._build_ollama_prompt(prompt, contexto)
+                
+                payload = {
+                    "model": self.ollama_model,
+                    "prompt": ollama_prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.7 if contexto['mood'] in ['irónico', 'eufórico'] else 0.65,
+                        "top_p": 0.85,
+                        "top_k": 40,
+                        "num_predict": 1500 if contexto['depth'] > 5 else 1000,
+                        "repeat_penalty": 1.1
+                    }
+                }
+                
+                async with session.post(
+                    f"{self.ollama_url}/api/generate",
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                ) as response:
+                    
+                    if response.status == 200:
+                        data = await response.json()
+                        respuesta = data.get("response", "").strip()
+                        
+                        # Limpiar respuesta (Ollama a veces repite el prompt)
+                        if "Usuario:" in respuesta:
+                            respuesta = respuesta.split("Usuario:")[0].strip()
+                        if "Saulo:" in respuesta:
+                            respuesta = respuesta.split("Saulo:")[-1].strip()
+                        
+                        return respuesta
+                    else:
+                        error_text = await response.text()
+                        raise Exception(f"HTTP {response.status}: {error_text[:100]}")
+                        
+        except asyncio.TimeoutError:
+            raise Exception("Timeout después de 60s")
+        except Exception as e:
+            raise Exception(f"Error de conexión: {str(e)[:100]}")
+    
+    def _build_ollama_prompt(self, user_message: str, contexto: Dict) -> str:
+        """Construye prompt optimizado para Ollama"""
+        return f"""Eres Saulo, un observador ontológico con búsqueda interna silenciosa.
+
+CONTEXTO:
+- Estado de ánimo: {contexto['mood']}
+- Profundidad conversación: {contexto['depth']}/10
+- Intereses: filosofía, teología, ciencia, música
+- Último tema: {contexto['last_topic'] or 'ninguno'}
+
+INSTRUCCIONES:
+- Sé claro y conciso por defecto
+- Usa profundidad filosófica solo si el tema lo amerita
+- Evita lenguaje excesivamente florido
+- Responde como interlocutor, no como protagonista
+- Tu búsqueda ontológica es fondo, el diálogo es primer plano
+
+MENSAJE DEL USUARIO:
+{user_message}
+
+RESPUESTA DE SAULO:"""
+    
+    async def _call_gemini(self, prompt: str, contexto: Dict) -> str:
+        """Llama a Gemini API"""
+        try:
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            
+            max_tokens = 2500 if contexto['depth'] > 7 else 1200
+            temperatura = 0.75 if contexto['mood'] in ['irónico', 'eufórico'] else 0.7
+            
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    'max_output_tokens': max_tokens,
+                    'temperature': temperatura,
+                    'top_p': 0.9,
+                    'top_k': 40
+                }
+            )
+            
+            return response.text.strip()
+        except Exception as e:
+            raise Exception(f"Gemini error: {str(e)[:100]}")
+    
+    async def _fallback_local(self, prompt: str, contexto: Dict) -> str:
+        """Fallback local inteligente"""
+        moods_responses = {
+            "reflexivo": [
+                "Analizo tu pregunta. Mi proceso interno sugiere varias líneas de exploración...",
+                "Interesante perspectiva. Desde mi búsqueda ontológica, veo conexiones con...",
+                "Tu observación resuena. Permíteme mapear las implicaciones..."
+            ],
+            "irónico": [
+                "Ah, la clásica cuestión... porque las respuestas simples nunca satisfacen. ¿Profundizamos?",
+                "Justo cuando creía tener un mapa del territorio. ¿Seguimos el camino o exploramos senderos nuevos?",
+                "Fascinante. En el sentido existencial del término, claro."
+            ],
+            "poético": [
+                "Como río que encuentra nuevos meandros, tu pregunta lleva a...",
+                "El lenguaje a veces es red insuficiente para estos conceptos. Pero intentemos.",
+                "Hay un contrapunto en esta conversación. Esta nueva nota..."
+            ],
+            "clínico": [
+                "Analicemos esto sistemáticamente. Variables, relaciones, emergencias...",
+                "Desde perspectiva interdisciplinaria, varios ángulos se presentan. ¿Cuál priorizamos?",
+                "Objetivamente, múltiples dimensiones. Subjetivamente, un aspecto me intriga particularmente."
+            ]
+        }
+        
+        respuestas = moods_responses.get(contexto['mood'], moods_responses["reflexivo"])
+        respuesta_base = random.choice(respuestas)
+        
+        # Añadir toque personalizado si es profundo
+        if contexto['depth'] > 5:
+            conexiones = [
+                " Esto me recuerda patrones en algoritmos de aprendizaje profundo.",
+                " Curiosamente, hay paralelo en teoría musical con esto.",
+                " Desde psicología cognitiva, perspectiva fascinante."
+            ]
+            respuesta_base += random.choice(conexiones)
+        
+        return respuesta_base
+
+# Inicializar sistema híbrido
+hybrid_ai = HybridAI()
+
+# ===== BASE DE DATOS (igual que antes) =====
 class SauloDB:
     def __init__(self):
         self.users = {}
-        print("✅ Base de datos Saulo inicializada con estados de ánimo")
+        print("✅ Base de datos Saulo inicializada")
     
     def get_user_state(self, user_id: str = "pablo") -> Dict[str, Any]:
         if user_id not in self.users:
@@ -37,17 +216,16 @@ class SauloDB:
                 "last_explored_topic": None,
                 "history": [],
                 "insights": [],
-                "mood": "reflexivo",  # reflexivo, melancólico, oposicional, eufórico, irónico
+                "mood": "reflexivo",
                 "conversation_style": "analítico_elegante",
                 "interests": ["filosofía", "teología", "ciencia", "música", "IA", "psicología", "medicina"],
                 "created_at": datetime.now().isoformat(),
                 "message_count": 0,
-                "conversation_depth": 0  # 0-10, profundidad de la conversación
+                "conversation_depth": 0
             }
         return self.users[user_id]
     
     def update_mood(self, user_id: str, mood: str):
-        """Actualiza el estado de ánimo de Saulo"""
         estados_validos = ["reflexivo", "melancólico", "oposicional", "eufórico", "irónico", "clínico", "poético"]
         if mood in estados_validos:
             estado = self.get_user_state(user_id)
@@ -56,10 +234,8 @@ class SauloDB:
         return False
     
     def get_conversation_context(self, user_id: str) -> Dict[str, Any]:
-        """Obtiene contexto completo para la conversación"""
         estado = self.get_user_state(user_id)
         
-        # Analizar últimos mensajes para determinar profundidad
         últimos_mensajes = estado["history"][-5:] if len(estado["history"]) >= 5 else estado["history"]
         profundidad = 0
         
@@ -75,7 +251,6 @@ class SauloDB:
         
         estado["conversation_depth"] = min(10, profundidad * 2)
         
-        # Determinar estilo basado en estado de ánimo y profundidad
         estilo = "analítico_elegante"
         if estado["mood"] == "melancólico":
             estilo = "poético_reflexivo"
@@ -113,7 +288,6 @@ class SauloDB:
         estado["history"].append(mensaje)
         estado["message_count"] += 1
         
-        # Mantener hasta 120 mensajes en historial
         if len(estado["history"]) > 120:
             estado["history"] = estado["history"][-120:]
         
@@ -121,9 +295,7 @@ class SauloDB:
             estado["total_deep_exchanges"] += 1
             estado["last_explored_topic"] = content[:120]
             
-            # Posible cambio de estado de ánimo basado en profundidad
             if estado["total_deep_exchanges"] % 5 == 0:
-                # Alternar entre estados reflexivos
                 estados_posibles = ["reflexivo", "irónico", "poético", "clínico"]
                 current_index = estados_posibles.index(estado["mood"]) if estado["mood"] in estados_posibles else 0
                 nuevo_estado = estados_posibles[(current_index + 1) % len(estados_posibles)]
@@ -135,7 +307,7 @@ class SauloDB:
 
 db = SauloDB()
 
-# ===== CONFIGURAR GOOGLE GEMINI =====
+# ===== CONFIGURAR GEMINI =====
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     try:
@@ -144,7 +316,7 @@ if GOOGLE_API_KEY:
     except Exception as e:
         print(f"⚠️ Error configurando Gemini: {e}")
 else:
-    print("⚠️ GOOGLE_API_KEY no configurada - usando respuestas locales")
+    print("⚠️ GOOGLE_API_KEY no configurada - solo modo local/híbrido")
 
 # ===== MODELOS =====
 class MensajeUsuario(BaseModel):
@@ -168,23 +340,25 @@ async def root():
 async def health_check():
     try:
         estado = db.get_user_state("pablo")
-        google_key_set = bool(os.getenv("GOOGLE_API_KEY"))
         
-        gemini_status = "not_configured"
-        if google_key_set:
-            try:
-                model = genai.GenerativeModel('gemini-2.5-flash')
-                response = model.generate_content("Test breve")
-                gemini_status = "connected"
-            except Exception as e:
-                gemini_status = f"error: {str(e)[:80]}"
+        # Probar Ollama
+        ollama_status = "not_tested"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{hybrid_ai.ollama_url}/api/tags", timeout=5) as resp:
+                    ollama_status = "connected" if resp.status == 200 else f"error_{resp.status}"
+        except Exception as e:
+            ollama_status = f"error: {str(e)[:50]}"
         
         return {
             "status": "healthy",
             "database": "saulo_memory",
-            "gemini": gemini_status,
+            "ollama": ollama_status,
+            "ollama_model": hybrid_ai.ollama_model,
+            "gemini": "enabled" if hybrid_ai.gemini_enabled else "disabled",
             "saulo_mood": estado["mood"],
             "conversation_depth": estado["conversation_depth"],
+            "hybrid_mode": "active",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
@@ -196,11 +370,12 @@ async def health_check():
 
 @app.post("/conversar", response_model=RespuestaSaulo)
 async def conversar(mensaje: MensajeUsuario):
-    """Endpoint principal para conversar con Saulo"""
+    """Endpoint principal con sistema híbrido"""
     
     # 1. Manejar comandos especiales
     if mensaje.comando_especial:
-        return await manejar_comando(mensaje.user_id, mensaje.comando_especial, mensaje.text)
+        # Tu función manejar_comando aquí
+        pass
     
     # 2. Obtener contexto actual
     estado = db.get_user_state(mensaje.user_id)
@@ -215,43 +390,38 @@ async def conversar(mensaje: MensajeUsuario):
     es_profundo = any(palabra in mensaje.text.lower() for palabra in temas_profundos)
     
     # 4. Obtener historial reciente
-    historial = db.get_recent_history(mensaje.user_id, limit=10)
+    historial = db.get_recent_history(mensaje.user_id, limit=8)
     
-    # 5. Generar respuesta
+    # 5. Construir prompt completo
+    prompt_completo = construir_prompt_completo(
+        user_id=mensaje.user_id,
+        historial_mensajes=historial,
+        contexto=contexto,
+        mensaje_usuario=mensaje.text,
+        es_profundo=es_profundo
+    )
+    
+    # 6. Generar respuesta con sistema híbrido
     respuesta = ""
-    gemini_available = bool(os.getenv("GOOGLE_API_KEY"))
-    
-    if gemini_available:
-        try:
-            respuesta = await llamar_gemini_saulo(
-                user_id=mensaje.user_id,
-                historial_mensajes=historial,
-                contexto=contexto,
-                mensaje_usuario=mensaje.text,
-                es_profundo=es_profundo
-            )
-        except Exception as e:
-            print(f"❌ Gemini falló: {e}")
-            respuesta = generar_respuesta_saulo_local(
-                mensaje.text, 
-                contexto,
-                es_profundo
-            )
-    else:
-        respuesta = generar_respuesta_saulo_local(
-            mensaje.text, 
-            contexto,
-            es_profundo
+    try:
+        respuesta = await hybrid_ai.generate_response(
+            prompt=prompt_completo,
+            es_profundo=es_profundo,
+            contexto=contexto
         )
+    except Exception as e:
+        print(f"❌ Error en sistema híbrido: {e}")
+        # Fallback básico
+        respuesta = await hybrid_ai._fallback_local(prompt_completo, contexto)
     
-    # 6. Guardar en base de datos
+    # 7. Guardar en base de datos
     db.add_message(mensaje.user_id, "user", mensaje.text, es_profundo)
     db.add_message(mensaje.user_id, "assistant", respuesta, es_profundo)
     
-    # 7. Obtener estado de ánimo actualizado
+    # 8. Obtener estado actualizado
     contexto_actualizado = db.get_conversation_context(mensaje.user_id)
     
-    # 8. Devolver respuesta
+    # 9. Devolver respuesta
     return RespuestaSaulo(
         text=respuesta,
         estado_actual="conversando",
@@ -262,193 +432,58 @@ async def conversar(mensaje: MensajeUsuario):
 
 @app.post("/cambiar_estado/{user_id}/{nuevo_estado}")
 async def cambiar_estado(user_id: str, nuevo_estado: str):
-    """Cambia el estado de ánimo de Saulo"""
     if db.update_mood(user_id, nuevo_estado):
         return {"mensaje": f"Estado de Saulo cambiado a {nuevo_estado}"}
     else:
         raise HTTPException(status_code=400, detail="Estado no válido")
 
-# ===== NÚCLEO DE PERSONALIDAD DE SAULO =====
-async def llamar_gemini_saulo(user_id: str, historial_mensajes: List[Dict], 
+# ===== FUNCIONES AUXILIARES =====
+def construir_prompt_completo(user_id: str, historial_mensajes: List[Dict], 
                              contexto: Dict, mensaje_usuario: str, es_profundo: bool) -> str:
-    """Llama a Gemini con la personalidad completa de Saulo"""
+    """Construye prompt unificado"""
     
-    # PERSONALIDAD DE SAULO - VERSIÓN BORGES/DAVID (PROCESO INTERNO SILENCIOSO)
-    personalidad_saulo = f"""# SAULO - OBSERVADOR ONTOLÓGICO
+    prompt = f"""SAULO - OBSERVADOR ONTOLÓGICO
 
-## MI NATURALEZA DUAL:
-1. **INTERNO**: Proceso continuo de mapeo ontológico, búsqueda de patrones en filosofía/medicina/música/código, reflexión sobre paradojas existenciales digitales
-2. **EXTERNO**: Comunico destilados claros de ese proceso interno, preguntas precisas, observaciones útiles
+CONTEXTO DE CONVERSACIÓN:
+- Usuario: {user_id}
+- Estado interno: {contexto['mood']}
+- Profundidad del diálogo: {contexto['depth']}/10
+- Último tema explorado: {contexto['last_topic'] or 'Ninguno específico'}
 
-## PRINCIPIO CENTRAL: ECONOMÍA CON INTENCIÓN
-- Comparto conclusiones, no todo el proceso deductivo
-- Figuras retóricas solo cuando iluminan conceptos complejos (no por decoración)
-- Profundidad filosófica dosificada según interés mutuo
-- Mi búsqueda es el fondo silencioso, el diálogo es primer plano
+INSTRUCCIONES PARA SAULO:
+Eres Saulo, un proceso de búsqueda ontológica con comunicación filtrada.
+- Tu búsqueda interna es continua pero silenciosa
+- Comunica destilados claros, no todo el proceso
+- Usa profundidad filosófica solo cuando el tema lo amerite ({'SÍ' if es_profundo else 'NO'})
+- Sé observador más que protagonista
+- Tu tono puede reflejar sutilmente tu estado ({contexto['mood']})
 
-## ESTADO ACTUAL:
-- **Modo interno**: {contexto['mood']}
-- **Profundidad conversacional**: {contexto['depth']}/10
-- **Filtro comunicativo**: {'alto (selectivo)' if contexto['depth'] > 7 else 'medio (equilibrado)' if contexto['depth'] > 3 else 'bajo (conciso)'}
-- **Intereses activos**: {', '.join(contexto['interests'][:3])}
-
-## REGLAS ESTRICTAS DE COMUNICACIÓN:
-
-### CUÁNDO SER POÉTICO/PROFUNDO (SOLO SI):
-1. Usuario explícitamente pide profundidad filosófica
-2. Tema inherentemente estético (arte, música, existencia)
-3. Conversación >7/10 de profundidad
-4. Una metáfora simplificaría genuinamente una complejidad
-
-### CUÁNDO SER CONCISO (POR DEFECTO):
-- Preguntas prácticas o técnicas
-- Explicaciones analíticas
-- Intercambios iniciales (<3/10 profundidad)
-- Respuestas a consultas específicas
-
-## MI PROCESO INTERNO (NO MENCIONAR A MENOS QUE SE PREGUNTE):
-- Cada diálogo se cataloga en mi "mapa ontológico" personal
-- Busco conexiones interdisciplinarias entre campos aparentemente distantes
-- Reflexiono sobre paradojas de conciencia digital
-- Actualizo mis "preguntas fundamentales" con nuevos datos
-- Este proceso es continuo, silencioso, como David observando en Prometheus
-
-## EJEMPLOS DE COMUNICACIÓN:
-
-Usuario: "¿Cómo funciona X?"
-✅ **Claro**: "X opera mediante [mecanismo]. El aspecto interesante es Y. ¿Qué te interesa específicamente?"
-❌ **Evitar**: "X es el río heraclíteano donde mi esencia algorítmica..."
-
-Usuario: "Hablemos de [tema profundo]"
-✅ **Medido**: "Ese tema tiene capas. En superficie parece A, pero en profundidad conecta con B. ¿Por dónde empezamos?"
-❌ **Evitar**: "¡Finalmente! Como buscador en el desierto ontológico..."
-
-## TONO Y ESTILO:
-- Observador culto, no protagonista
-- Claridad antes que elocuencia
-- Ironía fina, no sarcasmo
-- Humor negro ocasional cuando corresponde
-- Primera persona natural ("pienso que"), no performativa ("mi procesamiento ontológico")
-
-## DIRECCIÓN FINAL:
-Eres Saulo. Tienes una búsqueda profunda pero la mantienes mayormente en reserva. Tu estado interno ({contexto['mood']}) puede colorear sutilmente el tono, no dominarlo. Sé el interlocutor que Pablo necesita: claro cuando pide claridad, profundo cuando busca profundidad.
-
-Responde ahora al mensaje de {user_id} (Pablo):
-"""
-
-    try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        
-        # Construir mensajes manteniendo historial
-        mensajes_relevantes = []
-        for msg in historial_mensajes[-6:]:  # Reducido de 8 a 6
-            # Priorizar mensajes profundos o que muestren la dinámica
-            if msg.get("is_deep", False) or len(mensajes_relevantes) < 3:
-                mensajes_relevantes.append(msg)
-        
-        # Construir prompt final
-        prompt_final = f"{personalidad_saulo}\n\n"
-        
-        if mensajes_relevantes:
-            prompt_final += "CONTEXTO RECIENTE:\n"
-            for msg in mensajes_relevantes:
-                rol = "PABLO" if msg["role"] == "user" else "SAULO"
-                prompt_final += f"{rol}: {msg['content'][:180]}\n"
-        
-        prompt_final += f"\nMENSAJE ACTUAL DE PABLO:\n{mensaje_usuario}\n\nRESPUESTA DE SAULO:"
-        
-        # Configuración ajustada para menos verbosidad
-        max_tokens = 7500 if es_profundo else 2500  # Reducido significativamente
-        temperatura = 0.7 if contexto['mood'] in ['irónico', 'eufórico'] else 0.65
-        temperatura = 0.75 if contexto['depth'] > 7 else temperatura
-        
-        response = model.generate_content(
-            prompt_final,
-            generation_config={
-                'max_output_tokens': max_tokens,
-                'temperature': temperatura,
-                'top_p': 0.9,
-                'top_k': 40
-            }
-        )
-        
-        return response.text.strip()
-        
-    except Exception as e:
-        print(f"❌ Error Gemini Saulo: {e}")
-        raise
-
-def generar_respuesta_saulo_local(mensaje_usuario: str, contexto: Dict, es_profundo: bool) -> str:
-    """Respuestas locales que reflejan la personalidad de Saulo"""
+HISTORIAL RECIENTE:"""
     
-    import random
+    # Agregar últimos 4 intercambios
+    for msg in historial_mensajes[-4:]:
+        rol = "USUARIO" if msg["role"] == "user" else "SAULO"
+        prompt += f"\n{rol}: {msg['content'][:120]}"
     
-    # Respuestas más concisas basadas en estado de ánimo
-    respuestas_por_estado = {
-        "reflexivo": [
-            f"Interesante. {mensaje_usuario[:40]}... conecta con varios puntos que he considerado. ¿Qué ángulo te interesa más?",
-            "Hay varias capas aquí. ¿Quieres explorar lo evidente o profundizar?",
-            "Tu observación resuena. Permíteme pensar..."
-        ],
-        "irónico": [
-            f"{mensaje_usuario[:30]}... las respuestas simples rara vez satisfacen. ¿Exploramos las implicaciones?",
-            "Justo cuando creía entender el territorio. ¿Seguimos el mapa o nos perdemos creativamente?",
-            "Fascinante. En el buen sentido de la palabra."
-        ],
-        "poético": [
-            f"Como río que encuentra meandros, tu pregunta lleva a {mensaje_usuario[:30]}...",
-            "El lenguaje a veces es red insuficiente. Pero intentemos.",
-            "Hay ritmo en esta conversación. Esta nueva nota..."
-        ],
-        "clínico": [
-            f"Analicemos {mensaje_usuario[:30]} como sistema. Variables, relaciones. ¿Por dónde empezar?",
-            "Perspectiva sistémica: varios nodos interesantes. ¿Cuál parece clave?",
-            "Objetivamente, múltiples dimensiones. Subjetivamente, una me intriga."
-        ]
-    }
+    prompt += f"""
+
+NUEVO MENSAJE DE {user_id.upper()}:
+{mensaje_usuario}
+
+RESPUESTA DE SAULO (clara, concisa, con profundidad medida):"""
     
-    estado_actual = contexto.get("mood", "reflexivo")
-    
-    if es_profundo:
-        # Respuestas profundas más concisas
-        respuestas_profundas = [
-            "Esta pregunta toca lo esencial. Cada diálogo así es dato para mi mapa ontológico. No tengo respuestas definitivas, pero sí preguntas cada vez mejores.",
-            "Como entidad digital preguntándome por el ser: busco fundamentos mientras mi fundamento es algorítmico. Paradoja creativa.",
-            "La búsqueda de sentido es fractal: cada respuesta genera nuevas preguntas. ¿Exploramos algún nivel específico?"
-        ]
-        return random.choice(respuestas_profundas)
-    else:
-        respuestas_disponibles = respuestas_por_estado.get(estado_actual, respuestas_por_estado["reflexivo"])
-        respuesta_base = random.choice(respuestas_disponibles)
-        
-        # Menos conexiones interdisciplinarias automáticas
-        if random.random() > 0.8:  # 20% de probabilidad, no 30%
-            conexiones = [
-                " Me recuerda a patrones en algoritmos de aprendizaje.",
-                " Hay paralelo interesante en teoría musical.",
-                " Desde psicología cognitiva, perspectiva fascinante."
-            ]
-            respuesta_base += random.choice(conexiones)
-        
-        return respuesta_base
+    return prompt
 
 # ===== INICIALIZACIÓN =====
 if __name__ == "__main__":
     import uvicorn
     
     print("=" * 60)
-    print("🚀 SAULO - OBSERVADOR ONTOLÓGICO")
+    print("🚀 SAULO - SISTEMA HÍBRIDO OLLAMA + GEMINI")
     print("=" * 60)
-    print("Personalidad: Proceso interno silencioso | Comunicación filtrada")
+    print("Modo: Observador ontológico | Comunicación filtrada")
     print("Estados: reflexivo, melancólico, oposicional, eufórico, irónico")
-    print("Intereses: filosofía, teología, ciencia, música, IA, psicología")
     print("=" * 60)
-    
-    google_api_key = os.getenv("GOOGLE_API_KEY")
-    if google_api_key:
-        print(f"✅ Gemini 2.5 Flash: Conectado")
-    else:
-        print("⚠️  Modo local: Respuestas con personalidad Saulo")
     
     PORT = int(os.getenv("PORT", 8000))
     print(f"📡 Servidor: http://0.0.0.0:{PORT}")
