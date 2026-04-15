@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+uploads/*
+!uploads/.gitkeep
+*.log
+
+# Secrets y credenciales
+client_secret_*.json
+client_secrets.json
+.env
+*.pem
+*.key

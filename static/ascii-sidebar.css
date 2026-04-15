@@ -1,0 +1,135 @@
+/* ASCII Art de Dogma Wifus para Sidebar - Estilo asc11.com */
+
+.ascii-waifu-container {
+    position: relative;
+    padding: 10px;
+    margin: 15px 0;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 8px;
+    line-height: 1.1;
+    letter-spacing: 0.5px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(16, 25, 35, 0.8), rgba(22, 35, 49, 0.9));
+    border: 1px solid var(--border);
+}
+
+/* ROYAL GUARD - Frame 1 */
+.ascii-royal-guard-1 {
+    color: #ffd700;
+    text-shadow: 
+        0 0 5px #ffd700,
+        0 0 10px #ff6b35,
+        0 0 15px #ff4500;
+    white-space: pre;
+    animation: glow-gold 3s ease-in-out infinite;
+}
+
+/* ROYAL GUARD - Frame 2 */
+.ascii-royal-guard-2 {
+    color: #c0c0c0;
+    text-shadow: 
+        0 0 5px #c0c0c0,
+        0 0 10px #808080,
+        0 0 15px #4682b4;
+    white-space: pre;
+    animation: glow-silver 3s ease-in-out infinite;
+}
+
+/* HUNTRESS - Frame */
+.ascii-huntress {
+    color: #228b22;
+    text-shadow: 
+        0 0 5px #228b22,
+        0 0 10px #32cd32,
+        0 0 15px #006400;
+    white-space: pre;
+    animation: glow-forest 4s ease-in-out infinite;
+}
+
+/* PRIESTESS - Frame */
+.ascii-priestess {
+    color: #9370db;
+    text-shadow: 
+        0 0 5px #9370db,
+        0 0 10px #ba55d3,
+        0 0 15px #8a2be2;
+    white-space: pre;
+    animation: glow-mystic 3.5s ease-in-out infinite;
+}
+
+@keyframes glow-gold {
+    0%, 100% { opacity: 0.9; text-shadow: 0 0 5px #ffd700, 0 0 10px #ff6b35; }
+    50% { opacity: 1; text-shadow: 0 0 10px #ffd700, 0 0 20px #ff6b35, 0 0 30px #ff4500; }
+}
+
+@keyframes glow-silver {
+    0%, 100% { opacity: 0.9; text-shadow: 0 0 5px #c0c0c0, 0 0 10px #808080; }
+    50% { opacity: 1; text-shadow: 0 0 10px #c0c0c0, 0 0 20px #4682b4; }
+}
+
+@keyframes glow-forest {
+    0%, 100% { opacity: 0.9; text-shadow: 0 0 5px #228b22, 0 0 10px #32cd32; }
+    50% { opacity: 1; text-shadow: 0 0 10px #228b22, 0 0 20px #006400; }
+}
+
+@keyframes glow-mystic {
+    0%, 100% { opacity: 0.9; text-shadow: 0 0 5px #9370db, 0 0 10px #ba55d3; }
+    50% { opacity: 1; text-shadow: 0 0 10px #9370db, 0 0 20px #8a2be2, 0 0 30px #4b0082; }
+}
+
+/* Animation frames cycling */
+.ascii-frame {
+    display: none;
+}
+
+.ascii-frame.active {
+    display: block;
+}
+
+.ascii-waifu-container.animate .ascii-frame:nth-child(1) {
+    animation: fade-frame-1 9s infinite;
+}
+
+.ascii-waifu-container.animate .ascii-frame:nth-child(2) {
+    animation: fade-frame-2 9s infinite;
+}
+
+.ascii-waifu-container.animate .ascii-frame:nth-child(3) {
+    animation: fade-frame-3 9s infinite;
+}
+
+@keyframes fade-frame-1 {
+    0%, 28% { opacity: 1; }
+    33%, 100% { opacity: 0; }
+}
+
+@keyframes fade-frame-2 {
+    0%, 28% { opacity: 0; }
+    33%, 61% { opacity: 1; }
+    66%, 100% { opacity: 0; }
+}
+
+@keyframes fade-frame-3 {
+    0%, 61% { opacity: 0; }
+    66%, 94% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Scanline effect */
+.ascii-scanline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scan-move 6s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes scan-move {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(200px); }
+}

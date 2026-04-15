@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saulo v4 - Unified AI Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/minimal-theme.css">
+    <link rel="stylesheet" href="/static/fixes-theme.css">
+    <link rel="stylesheet" href="/static/input-fix.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">
+                    <span class="logo-icon">❤️‍🔥</span>
+                    <span class="logo-text">Saulo</span>
+                    <span class="version">v4</span>
+                </h1>
+            </div>
+            
+            <button class="new-chat-btn" onclick="startNewChat()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Nueva conversación
+            </button>
+            
+            <div class="sidebar-section">
+                <h3>Modo</h3>
+                <div class="mode-selector">
+                    <button class="mode-btn active" data-mode="general" onclick="setMode('general')">
+                        <span>💬</span> General
+                    </button>
+                    <button class="mode-btn" data-mode="medical" onclick="setMode('medical')">
+                        <span>🏥</span> Médico
+                    </button>
+                    <button class="mode-btn" data-mode="coding" onclick="setMode('coding')">
+                        <span>💻</span> Código
+                    </button>
+                    <button class="mode-btn" data-mode="image" onclick="setMode('image')">
+                        <span>🎨</span> Imágenes
+                    </button>
+                    <button class="mode-btn" data-mode="vision" onclick="setMode('vision')">
+                        <span>👁️</span> Visión
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Sidebar Image -->
+            <div class="sidebar-image-container">
+                <img src="/static/sidebar-image.png" alt="Sidebar decoration" loading="lazy">
+            </div>
+            
+            <!-- Saulo Quote - Estado de ánimo RPG -->
+            <div class="sidebar-quote-container">
+                <p id="saulo-quote" class="saulo-quote">Cargando pensamiento...</p>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Modelo</h3>
+                <select class="model-select" id="model-select" onchange="updateModelStatus()">
+                    <option value="llama3.2" data-type="local">⚡ llama3.2 (Local)</option>
+                    <option value="kimi-cloud" data-type="cloud">☁️ Kimi (Cloud)</option>
+                    <option value="qwen2.5:7b" data-type="local">⚡ qwen2.5:7b (Local)</option>
+                    <option value="llava" data-type="local">⚡ llava (Visión)</option>
+                    <option value="vision-router" data-type="special">🔬 Vision Router (Auto)</option>
+                </select>
+                <div id="model-status" class="model-status"></div>
+            </div>
+            
+            <div class="sidebar-section user-section" id="user-section">
+                <h3>Usuario</h3>
+                <div class="user-row" id="user-row-anon">
+                    <span class="user-avatar-icon">👤</span>
+                    <span class="user-label">Anónimo</span>
+                    <button class="icon-btn" onclick="showAuthModal()" title="Iniciar sesión">🔐</button>
+                </div>
+                <div class="user-row" id="user-row-logged" style="display: none;">
+                    <img class="user-avatar-img" id="user-avatar" src="" alt="">
+                    <span class="user-name" id="user-name-display"></span>
+                    <button class="icon-btn" onclick="logout()" title="Cerrar sesión">🚪</button>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Conversaciones</h3>
+                <div class="conversations-list" id="conversations-list">
+                    <!-- Dynamic content -->
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="health-status" id="health-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Conectando...</span>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Chat Area -->
+            <div class="chat-container" id="chat-container">
+                <div class="welcome-screen" id="welcome-screen">
+                    <div class="welcome-content">
+                        <h2>¡Hola! Soy Saulo</h2>
+                        <p>Tu asistente AI multi-modal con capacidades médicas, coding, y generación de imágenes.</p>
+                        <div class="quick-actions">
+                            <button class="quick-btn" onclick="quickPrompt('Explica qué es la sepsis y su tratamiento')">
+                                🏥 "¿Qué es la sepsis?"
+                            </button>
+                            <button class="quick-btn" onclick="quickPrompt('Revisa este código Python...')">
+                                💻 "Revisa mi código"
+                            </button>
+                            <button class="quick-btn" onclick="quickPrompt('Genera una imagen de un paisaje cyberpunk')">
+                                🎨 "Crea una imagen"
+                            </button>
+                            <button class="quick-btn" onclick="quickPrompt('Analiza esta imagen médica')">
+                                👁️ "Analiza imagen"
+                            </button>
+                            <button class="quick-btn" onclick="quickPrompt('Genera un wireframe de app móvil')">
+                                📱 "Diseña UI"
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="messages" id="messages"></div>
+            </div>
+            
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="input-container">
+                    <div class="mode-indicator" id="mode-indicator">
+                        <span class="mode-badge" data-mode="general">General</span>
+                    </div>
+                    
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="message-input" 
+                            placeholder="Escribe tu mensaje..."
+                            rows="1"
+                            onkeydown="handleKeyDown(event)"
+                            oninput="autoResize(this)"
+                        ></textarea>
+                        
+                        <div class="input-actions">
+                            <button class="action-btn" id="upload-btn" onclick="triggerUpload()" title="Subir imagen">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                            </button>
+                            <input type="file" id="file-input" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
+                            
+                            <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-footer">
+                    Saulo v4 puede cometer errores. Verifica información médica importante.
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Auth Modal -->
+    <div class="modal-overlay" id="auth-modal" style="display: none;">
+        <div class="modal">
+            <h3>Bienvenido a Saulo</h3>
+            <p>Inicia sesión para guardar tu historial de conversaciones</p>
+            <div class="auth-options">
+                <div id="g_id_onload" data-client_id="1072935425761-i6kos06vkpgrods539k5f4h3bbd38995.apps.googleusercontent.com" data-callback="handleGoogleLogin"></div>
+                <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black"></div>
+                <button class="skip-btn" onclick="continueAnonymous()">Continuar sin guardar</button>
+            </div>
+            <button class="modal-close" onclick="closeAuthModal()">✕</button>
+        </div>
+    </div>
+    
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="/static/app.js?v=5"></script>
+    <script src="/static/quotes.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+/* ASCII Art Terminal Style - Escala de grises */
+
+.ascii-terminal-container {
+    background: #0c0c0c;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 10px 0;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 6px;
+    line-height: 1;
+    letter-spacing: 0;
+    overflow: hidden;
+}
+
+.ascii-terminal-container pre {
+    margin: 0;
+    color: #ccc;
+    text-shadow: none;
+    white-space: pre;
+    overflow-x: auto;
+}
+
+/* Efecto sutil de glow en bordes */
+.ascii-terminal-container:hover {
+    border-color: #555;
+    box-shadow: 0 0 10px rgba(100,100,100,0.1);
+}

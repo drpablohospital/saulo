@@ -1,0 +1,41 @@
+/* FIXES THEME - Saulo v4
+ * Fuentes de terminal, fixes visuales, color del corazón en llamas #ff4500
+ */
+
+/* Fuentes de terminal en TODO */
+body, input, textarea, button, select, pre, code {
+    font-family: 'Consolas', 'Monaco', 'Courier New', 'Lucida Console', monospace !important;
+}
+
+/* Color del corazón en llamas como acente #ff4500 */
+:root {
+    --accent: #ff4500 !important;
+    --accent-hover: #ff6347 !important;
+}
+
+/* Fondo del chat más oscuro para contraste */
+.chat-container {
+    background: #050505 !important;
+}
+
+/* Input de mensaje - permitir texto largo sin saltos forzados */
+#message-input {
+    white-space: pre-wrap !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    max-height: 200px !important;
+    min-height: 44px !important;
+    width: 100% !important;
+}
+
+/* La caja de entrada debe expandirse */
+.input-container {
+    flex-wrap: nowrap !important;
+    align-items: flex-end !important;
+}
+
+/* Fix: Logo con emoji correcto */
+.logo-icon {
+    font-size: 20px !important;
+}
+

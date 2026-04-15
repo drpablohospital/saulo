@@ -1,0 +1,361 @@
+<!-- ASCII Art con Efecto de Agua Arrastrada (Ripple) - Estilo asc11.com -->
+<div class="ascii-water-container" id="ascii-water-container">
+    <canvas id="ascii-canvas" class="ascii-canvas"></canvas>
+    <div class="ascii-overlay" id="ascii-overlay">
+        <pre class="ascii-raw" id="ascii-raw">
+        /\
+       /||\
+      / || \
+     /  ||  \
+    |   ||   |
+    |  ====  |
+    | |||| || |
+   /  |||| ||  \
+  /   |||| ||   \
+ |    |||| ||    |
+ |   [||||]||   |
+ |    |||| ||    |
+/     |||| ||     \
+      |||| ||
+      |||| ||
+       ||  ||
+      /  \ /  \
+     /    |    \
+    /     |     \
+        </pre>
+    </div>
+    <div class="water-instructions">
+        🌊 Mueve el mouse sobre el arte
+    </div>
+</div>
+
+<style>
+.ascii-water-container {
+    position: relative;
+    width: 100%;
+    height: 280px;
+    margin: 15px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: linear-gradient(180deg, 
+        rgba(13, 17, 23, 0.98) 0%, 
+        rgba(22, 27, 34, 0.99) 50%,
+        rgba(13, 17, 23, 0.98) 100%);
+    border: 1px solid #30363d;
+    box-shadow: 
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        0 4px 20px rgba(0,0,0,0.5),
+        inset 0 0 30px rgba(63, 185, 80, 0.05);
+    cursor: crosshair;
+}
+
+.ascii-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.9;
+}
+
+.ascii-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.ascii-raw {
+    font-family: 'Courier New', 'Monaco', monospace;
+    font-size: 8px;
+    line-height: 1.15;
+    letter-spacing: 1px;
+    margin: 0;
+    padding: 20px;
+    color: transparent;
+    background: linear-gradient(135deg, #ffd700, #ff6b35, #ff4500);
+    -webkit-background-clip: text;
+    background-clip: text;
+    text-shadow: 
+        0 0 10px rgba(255, 215, 0, 0.5),
+        0 0 20px rgba(255, 107, 53, 0.3);
+    opacity: 0.3;
+    transition: opacity 0.3s ease;
+}
+
+.ascii-water-container:hover .ascii-raw {
+    opacity: 0.1;
+}
+
+.water-instructions {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: #3fb950;
+    opacity: 0.6;
+    pointer-events: none;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: opacity 0.3s;
+}
+
+.ascii-water-container:hover .water-instructions {
+    opacity: 0;
+}
+
+/* Glow effect on edges */
+.ascii-water-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 12px;
+    box-shadow: inset 0 0 20px rgba(63, 185, 80, 0.1);
+    pointer-events: none;
+    z-index: 5;
+}
+</style>
+
+<script>
+(function() {
+    const container = document.getElementById('ascii-water-container');
+    const canvas = document.getElementById('ascii-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // ASCII Art data - Royal Guard Waifu
+    const asciiArt = [
+        "        /\\",
+        "       /||\\",
+        "      / || \\",
+        "     /  ||  \\",
+        "    |   ||   |",
+        "    |  ====  |",
+        "    | |||| || |",
+        "   /  |||| ||  \\",
+        "  /   |||| ||   \\",
+        " |    |||| ||    |",
+        " |   [||||]||   |",
+        " |    |||| ||    |",
+        "/     |||| ||     \\",
+        "      |||| ||",
+        "      |||| ||",
+        "       ||  ||",
+        "      /  \\ /  \\",
+        "     /    |    \\",
+        "    /     |     \\"
+    ];
+    
+    // Configuration
+    const config = {
+        fontSize: 9,
+        lineHeight: 10,
+        charWidth: 6,
+        rippleRadius: 50,
+        rippleStrength: 15,
+        damping: 0.95,
+        colorBase: '#3fb950',
+        colorHighlight: '#ffd700',
+        colorShadow: '#ff6b35'
+    };
+    
+    let width, height;
+    let ripples = [];
+    let mouseX = -100, mouseY = -100;
+    let animationId;
+    
+    // Initialize canvas
+    function resize() {
+        const rect = container.getBoundingClientRect();
+        width = canvas.width = rect.width;
+        height = canvas.height = rect.height;
+    }
+    
+    // Create ripple
+    function createRipple(x, y) {
+        ripples.push({
+            x: x,
+            y: y,
+            radius: 0,
+            strength: config.rippleStrength,
+            phase: 0
+        });
+        
+        // Limit ripples
+        if (ripples.length > 10) {
+            ripples.shift();
+        }
+    }
+    
+    // Get character at position
+    function getCharAt(x, y) {
+        const row = Math.floor(y / config.lineHeight);
+        const col = Math.floor(x / config.charWidth);
+        
+        if (row >= 0 && row < asciiArt.length) {
+            const line = asciiArt[row];
+            if (col >= 0 && col < line.length) {
+                return line[col];
+            }
+        }
+        return null;
+    }
+    
+    // Calculate ripple displacement
+    function getDisplacement(x, y, time) {
+        let displacement = { x: 0, y: 0 };
+        
+        // Mouse proximity effect
+        const dx = x - mouseX;
+        const dy = y - mouseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < config.rippleRadius * 2) {
+            const force = (1 - dist / (config.rippleRadius * 2)) * 3;
+            const angle = Math.atan2(dy, dx);
+            displacement.x += Math.cos(angle) * force * Math.sin(time * 0.003);
+            displacement.y += Math.sin(angle) * force * Math.sin(time * 0.003);
+        }
+        
+        // Ripples
+        ripples.forEach(ripple => {
+            const rdx = x - ripple.x;
+            const rdy = y - ripple.y;
+            const rdist = Math.sqrt(rdx * rdx + rdy * rdy);
+            
+            if (rdist < ripple.radius + 20 && rdist > ripple.radius - 20) {
+                const wave = Math.sin(rdist * 0.1 - ripple.phase) * ripple.strength;
+                const falloff = 1 - Math.abs(rdist - ripple.radius) / 20;
+                
+                displacement.x += (rdx / rdist) * wave * falloff;
+                displacement.y += (rdy / rdist) * wave * falloff;
+            }
+        });
+        
+        return displacement;
+    }
+    
+    // Get color based on position and time
+    function getColor(x, y, time, intensity) {
+        const hue = (time * 0.05 + x * 0.5 + y * 0.3) % 360;
+        const saturation = 70 + intensity * 30;
+        const lightness = 40 + intensity * 30;
+        
+        // Gold/Orange/Green gradient
+        if (intensity > 0.7) {
+            return `hsl(${45 + hue * 0.1}, ${saturation}%, ${lightness}%)`; // Gold
+        } else if (intensity > 0.4) {
+            return `hsl(${25 + hue * 0.1}, ${saturation}%, ${lightness}%)`; // Orange
+        } else {
+            return `hsl(${140 + hue * 0.1}, ${saturation}%, ${lightness}%)`; // Green
+        }
+    }
+    
+    // Animation loop
+    let lastTime = 0;
+    function animate(time) {
+        // Clear canvas
+        ctx.fillStyle = 'rgba(13, 17, 23, 0.3)';
+        ctx.fillRect(0, 0, width, height);
+        
+        ctx.font = `${config.fontSize}px "Courier New", monospace`;
+        ctx.textBaseline = 'top';
+        
+        // Calculate center offset
+        const artWidth = asciiArt[0].length * config.charWidth;
+        const artHeight = asciiArt.length * config.lineHeight;
+        const offsetX = (width - artWidth) / 2;
+        const offsetY = (height - artHeight) / 2;
+        
+        // Draw ASCII with water effect
+        for (let row = 0; row < asciiArt.length; row++) {
+            const line = asciiArt[row];
+            for (let col = 0; col < line.length; col++) {
+                const char = line[col];
+                if (char === ' ') continue;
+                
+                const baseX = offsetX + col * config.charWidth;
+                const baseY = offsetY + row * config.lineHeight;
+                
+                const displacement = getDisplacement(baseX, baseY, time);
+                const x = baseX + displacement.x;
+                const y = baseY + displacement.y;
+                
+                const intensity = Math.sqrt(displacement.x * displacement.x + displacement.y * displacement.y) / 10;
+                
+                // Draw character
+                ctx.fillStyle = getColor(col, row, time, Math.min(intensity, 1));
+                ctx.fillText(char, x, y);
+                
+                // Add glow for high intensity
+                if (intensity > 0.5) {
+                    ctx.save();
+                    ctx.shadowColor = getColor(col, row, time, intensity);
+                    ctx.shadowBlur = intensity * 10;
+                    ctx.fillText(char, x, y);
+                    ctx.restore();
+                }
+            }
+        }
+        
+        // Update ripples
+        ripples.forEach((ripple, index) => {
+            ripple.radius += 2;
+            ripple.phase += 0.2;
+            ripple.strength *= config.damping;
+            
+            if (ripple.strength < 0.1) {
+                ripples.splice(index, 1);
+            }
+        });
+        
+        // Auto ripple on mouse movement
+        if (Math.abs(time - lastTime) > 100) {
+            if (mouseX > 0 && mouseY > 0) {
+                createRipple(mouseX, mouseY);
+            }
+            lastTime = time;
+        }
+        
+        animationId = requestAnimationFrame(animate);
+    }
+    
+    // Mouse events
+    container.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mouseX = e.clientX - rect.left;
+        mouseY = e.clientY - rect.top;
+    });
+    
+    container.addEventListener('mouseleave', () => {
+        mouseX = -100;
+        mouseY = -100;
+    });
+    
+    container.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        createRipple(x, y);
+    });
+    
+    // Touch events for mobile
+    container.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        mouseX = touch.clientX - rect.left;
+        mouseY = touch.clientY - rect.top;
+    });
+    
+    // Initialize
+    resize();
+    window.addEventListener('resize', resize);
+    animate(0);
+})();
+</script>

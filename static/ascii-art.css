@@ -1,0 +1,124 @@
+/* ASCII Art Animado para Sidebar */
+
+.ascii-container {
+    position: relative;
+    padding: 20px 0;
+    margin: 10px 0;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: 1px;
+    overflow: hidden;
+}
+
+.ascii-art {
+    color: var(--accent);
+    text-shadow: 
+        0 0 5px var(--accent),
+        0 0 10px var(--accent),
+        0 0 15px var(--accent);
+    white-space: pre;
+    animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.ascii-art-secondary {
+    color: #58a6ff;
+    text-shadow: 
+        0 0 5px #58a6ff,
+        0 0 10px #58a6ff;
+    white-space: pre;
+    animation: glow-pulse 3s ease-in-out infinite reverse;
+}
+
+.ascii-scanline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        var(--accent),
+        transparent
+    );
+    animation: scanline 4s linear infinite;
+}
+
+@keyframes glow-pulse {
+    0%, 100% {
+        opacity: 0.8;
+        text-shadow: 
+            0 0 5px var(--accent),
+            0 0 10px var(--accent),
+            0 0 15px var(--accent);
+    }
+    50% {
+        opacity: 1;
+        text-shadow: 
+            0 0 10px var(--accent),
+            0 0 20px var(--accent),
+            0 0 30px var(--accent),
+            0 0 40px var(--accent);
+    }
+}
+
+@keyframes scanline {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(200px); }
+}
+
+.ascii-matrix {
+    animation: matrix-rain 8s linear infinite;
+}
+
+@keyframes matrix-rain {
+    0% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { opacity: 0.3; }
+}
+
+/* Terminal cursor effect */
+.ascii-cursor::after {
+    content: '▋';
+    animation: cursor-blink 1s step-end infinite;
+}
+
+@keyframes cursor-blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Different ASCII frames for animation */
+.ascii-frame-1 { display: block; }
+.ascii-frame-2 { display: none; }
+.ascii-frame-3 { display: none; }
+
+.ascii-container.animate .ascii-frame-1 {
+    animation: frame-cycle-1 6s infinite;
+}
+
+.ascii-container.animate .ascii-frame-2 {
+    animation: frame-cycle-2 6s infinite;
+}
+
+.ascii-container.animate .ascii-frame-3 {
+    animation: frame-cycle-3 6s infinite;
+}
+
+@keyframes frame-cycle-1 {
+    0%, 30% { display: block; }
+    31%, 100% { display: none; }
+}
+
+@keyframes frame-cycle-2 {
+    0%, 30% { display: none; }
+    31%, 60% { display: block; }
+    61%, 100% { display: none; }
+}
+
+@keyframes frame-cycle-3 {
+    0%, 60% { display: none; }
+    61%, 100% { display: block; }
+}

@@ -1,0 +1,230 @@
+<!-- Dogma Wifus ASCII Art - Estilo asc11.com -->
+
+<div class="ascii-waifu-container animate">
+    <div class="ascii-scanline"></div>
+    
+    <!-- ROYAL GUARD - Frame 1 -->
+    <pre class="ascii-frame ascii-royal-guard-1 active">
+        /\
+       /||\
+      / || \
+     /  ||  \
+    |   ||   |
+    |  ====  |
+    | |||| || |
+   /  |||| ||  \
+  /   |||| ||   \
+ |    |||| ||    |
+ |   [||||]||   |
+ |    |||| ||    |
+/     |||| ||     \
+      |||| ||
+      |||| ||
+       ||  ||
+      /  \ /  \
+     /    |    \
+    /     |     \
+   </pre>
+    
+    <!-- HUNTRESS - Frame 2 -->
+    <pre class="ascii-frame ascii-huntress">
+       /\
+      /||\
+     / || \
+    /  ||  \
+   |   ||   |
+   |  ====  |
+   | / || \ |
+  /  / || \  \
+ /  /  ||  \  \
+|  /   ||   \  |
+|  |  [==]  |  |
+|  |   ||   |  |
+|  \   ||   /  |
+ \  \  ||  /  /
+  \  \ || /  /
+   \  \||/  /
+    \ ||| /
+     \|||/
+    </pre>
+    
+    <!-- PRIESTESS - Frame 3 -->
+    <pre class="ascii-frame ascii-priestess">
+       /\
+      /||\
+     / || \
+    /  ||  \
+   | ~ || ~ |
+   |  ====  |
+   | / || \ |
+  /  / || \  \
+ /  /  ||  \  \
+|  /   ||   \  |
+|  |  {**}  |  |
+|  |   ||   |  |
+|  |   ||   |  |
+ \ |   ||   | /
+  \|   ||   |/
+   |   ||   |
+   /\  ||  /\
+  /  \ || /  \
+ /    \||/    \
+    </pre>
+</div>
+
+<style>
+/* Inline styles for immediate effect */
+.ascii-waifu-container {
+    position: relative;
+    padding: 15px 10px;
+    margin: 20px 0;
+    text-align: center;
+    font-family: 'Courier New', 'Monaco', monospace;
+    font-size: 9px;
+    line-height: 1.2;
+    letter-spacing: 1px;
+    overflow: hidden;
+    border-radius: 12px;
+    background: linear-gradient(180deg, 
+        rgba(13, 17, 23, 0.95) 0%, 
+        rgba(22, 27, 34, 0.98) 100%);
+    border: 1px solid #30363d;
+    box-shadow: 
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        0 4px 20px rgba(0,0,0,0.5);
+}
+
+.ascii-waifu-container::before {
+    content: 'SAULO AI';
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    font-size: 7px;
+    color: #3fb950;
+    opacity: 0.7;
+    letter-spacing: 2px;
+}
+
+.ascii-frame {
+    display: none;
+    margin: 0;
+    padding: 20px 0 10px 0;
+}
+
+.ascii-frame.active {
+    display: block;
+}
+
+/* ROYAL GUARD - Gold/Sword theme */
+.ascii-royal-guard-1 {
+    color: #ffd700;
+    text-shadow: 
+        0 0 5px rgba(255, 215, 0, 0.5),
+        0 0 10px rgba(255, 107, 53, 0.3);
+    animation: pulse-gold 2s ease-in-out infinite;
+}
+
+/* HUNTRESS - Green/Forest theme */
+.ascii-huntress {
+    color: #7ee787;
+    text-shadow: 
+        0 0 5px rgba(126, 231, 135, 0.5),
+        0 0 10px rgba(34, 197, 94, 0.3);
+    animation: pulse-green 2s ease-in-out infinite;
+}
+
+/* PRIESTESS - Purple/Mystic theme */
+.ascii-priestess {
+    color: #c084fc;
+    text-shadow: 
+        0 0 5px rgba(192, 132, 252, 0.5),
+        0 0 10px rgba(168, 85, 247, 0.3);
+    animation: pulse-purple 2s ease-in-out infinite;
+}
+
+@keyframes pulse-gold {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 1; text-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
+}
+
+@keyframes pulse-green {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 1; text-shadow: 0 0 15px rgba(126, 231, 135, 0.8); }
+}
+
+@keyframes pulse-purple {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 1; text-shadow: 0 0 15px rgba(192, 132, 252, 0.8); }
+}
+
+/* Scanline effect */
+.ascii-scanline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(63, 185, 80, 0.5), 
+        transparent);
+    animation: scan 4s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes scan {
+    0% { transform: translateY(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(250px); opacity: 0; }
+}
+
+/* Frame cycling animation */
+.ascii-waifu-container.animate .ascii-royal-guard-1 {
+    animation: show-frame-1 12s infinite;
+}
+
+.ascii-waifu-container.animate .ascii-huntress {
+    animation: show-frame-2 12s infinite;
+}
+
+.ascii-waifu-container.animate .ascii-priestess {
+    animation: show-frame-3 12s infinite;
+}
+
+@keyframes show-frame-1 {
+    0%, 30% { opacity: 1; }
+    33%, 100% { opacity: 0; }
+}
+
+@keyframes show-frame-2 {
+    0%, 30% { opacity: 0; }
+    33%, 63% { opacity: 1; }
+    66%, 100% { opacity: 0; }
+}
+
+@keyframes show-frame-3 {
+    0%, 63% { opacity: 0; }
+    66%, 96% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Hover pause */
+.ascii-waifu-container:hover .ascii-frame {
+    animation-play-state: paused;
+}
+</style>
+
+<script>
+// Simple frame cycling
+(function() {
+    const frames = document.querySelectorAll('.ascii-frame');
+    let current = 0;
+    
+    setInterval(() => {
+        frames.forEach(f => f.classList.remove('active'));
+        current = (current + 1) % frames.length;
+        frames[current].classList.add('active');
+    }, 4000);
+})();
+</script>
