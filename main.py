@@ -22,6 +22,8 @@ import asyncio
 import json
 import base64
 import io
+import random
+import urllib.parse
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, AsyncGenerator, Literal
@@ -36,6 +38,9 @@ from pydantic import BaseModel, Field
 
 # HTTP client
 import httpx
+
+# Importar servicios adicionales
+from VisionService import vision_service
 
 # ============ CONFIGURACIÓN ============
 
@@ -409,49 +414,95 @@ Cuando revises código:
 
 
 class ImageService:
-    """Servicio de generación de imágenes (Stable Diffusion)."""
+    """Servicio de generación de imágenes (Stable Diffusion local + Pollinations fallback)."""
     
     def __init__(self):
         self.sd_url = SD_URL
         self.http = httpx.AsyncClient(timeout=120.0)
+        self.pollinations_base = "https://image.pollinations.ai/prompt"
     
     async def health_check(self) -> Dict:
         """Check if SD is available."""
         try:
-            response = await self.http.get(f"{self.sd_url}/sdapi/v1/progress")
+            response = await self.http.get(f"{self.sd_url}/sdapi/v1/progress", timeout=5.0)
             return {"status": "connected" if response.status_code == 200 else "error"}
         except Exception as e:
             return {"status": "disconnected", "error": str(e)}
     
     async def generate(self, request: GenerateImageRequest) -> Dict:
-        """Generate image with SD."""
+        """Generate image: intenta SD local primero, luego Pollinations."""
+        # Intento 1: Stable Diffusion local
         try:
-            payload = {
-                "prompt": request.prompt,
-                "negative_prompt": request.negative_prompt,
-                "width": request.width,
-                "height": request.height,
-                "steps": request.steps,
-                "cfg_scale": request.cfg_scale,
-                "sampler_name": "DPM++ 2M Karras",
-                "batch_size": 1
-            }
-            
-            response = await self.http.post(f"{self.sd_url}/sdapi/v1/txt2img", json=payload)
-            data = response.json()
-            
-            if "images" in data and len(data["images"]) > 0:
-                image_b64 = data["images"][0]
-                return {
-                    "success": True,
-                    "image": image_b64,
-                    "info": data.get("info", {})
-                }
-            
-            return {"success": False, "error": "No images generated"}
-            
+            result = await self._generate_local(request)
+            if result.get("success"):
+                result["source"] = "local (GPU)"
+                return result
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            print(f"SD local failed: {e}")
+        
+        # Intento 2: Pollinations.ai (fallback cloud)
+        try:
+            result = await self._generate_pollinations(request)
+            if result.get("success"):
+                result["source"] = "cloud (Pollinations)"
+                return result
+        except Exception as e:
+            print(f"Pollinations failed: {e}")
+        
+        return {"success": False, "error": "All connection attempts failed. Local SD not running and cloud fallback unavailable."}
+    
+    async def _generate_local(self, request: GenerateImageRequest) -> Dict:
+        """Generate with local Stable Diffusion."""
+        payload = {
+            "prompt": request.prompt,
+            "negative_prompt": request.negative_prompt or "",
+            "width": min(request.width, 1024),
+            "height": min(request.height, 1024),
+            "steps": min(request.steps, 50),
+            "cfg_scale": request.cfg_scale,
+            "sampler_name": "DPM++ 2M Karras",
+            "batch_size": 1
+        }
+        
+        response = await self.http.post(f"{self.sd_url}/sdapi/v1/txt2img", json=payload, timeout=60.0)
+        data = response.json()
+        
+        if "images" in data and len(data["images"]) > 0:
+            return {
+                "success": True,
+                "image": data["images"][0],
+                "info": data.get("info", {})
+            }
+        
+        return {"success": False, "error": "No images generated"}
+    
+    async def _generate_pollinations(self, request: GenerateImageRequest) -> Dict:
+        """Generate with Pollinations.ai (cloud fallback)."""
+        # Construir URL de Pollinations
+        prompt_encoded = urllib.parse.quote(request.prompt)
+        url = f"{self.pollinations_base}/{prompt_encoded}"
+        
+        # Parámetros
+        params = {
+            "width": min(request.width, 1024),
+            "height": min(request.height, 1024),
+            "seed": random.randint(1, 1000000),
+            "nologo": "true"
+        }
+        
+        # Descargar imagen
+        response = await self.http.get(url, params=params, timeout=30.0)
+        
+        if response.status_code == 200:
+            # Convertir a base64
+            image_b64 = base64.b64encode(response.content).decode('utf-8')
+            return {
+                "success": True,
+                "image": image_b64,
+                "info": {"source": "pollinations.ai", "prompt": request.prompt}
+            }
+        
+        return {"success": False, "error": f"Pollinations returned {response.status_code}"}
 
 
 class LangostaBridge:
