@@ -1,0 +1,512 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: linear-gradient(135deg, #1c0f00 0%, #2d1b00 100%); /* Fondo cálido oscuro */
+    color: #f5e9d9; /* Color crema cálido */
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.chat-container {
+    width: 100%;
+    max-width: 800px;
+    height: 90vh;
+    background: rgba(28, 15, 0, 0.85); /* Café oscuro semitransparente */
+    border: 1px solid #5a3a1a; /* Borde dorado oscuro */
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* Cabecera */
+.chat-header {
+    padding: 20px;
+    border-bottom: 1px solid #5a3a1a;
+    background: linear-gradient(to right, rgba(44, 22, 0, 0.9), rgba(28, 15, 0, 0.7));
+}
+
+.saulo-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Avatar con temática de llama */
+.avatar {
+    width: 70px;
+    height: 70px;
+    position: relative;
+}
+
+.avatar-inner {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #ff6b00 0%, #ff9500 100%); /* Naranja llama */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px; /* Más grande para el emoji */
+    position: relative;
+    z-index: 2;
+}
+
+.avatar-pulse {
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    right: -5px;
+    bottom: -5px;
+    background: linear-gradient(135deg, #ff6b00 30%, #ff9500 70%);
+    border-radius: 50%;
+    z-index: 1;
+    opacity: 0.4;
+    animation: pulse-avatar 2s infinite;
+}
+
+@keyframes pulse-avatar {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 0.4;
+    }
+    50% { 
+        transform: scale(1.08);
+        opacity: 0.2;
+    }
+}
+
+.saulo-text h1 {
+    font-size: 32px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%); /* Gradiente naranja */
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+}
+
+.subtitle {
+    color: #d4a76a; /* Dorado claro */
+    font-size: 15px;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 14px;
+    color: #b08d57; /* Dorado medio */
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.connected {
+    background: #f59e0b; /* Ámbar en lugar de verde */
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Área de mensajes - SIN FONDOS SUBRAYADOS */
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    scroll-behavior: smooth;
+    /* Fondo texturizado sutil */
+    background-image: 
+        radial-gradient(circle at 25% 25%, rgba(255, 107, 0, 0.03) 0%, transparent 55%),
+        radial-gradient(circle at 75% 75%, rgba(255, 149, 0, 0.03) 0%, transparent 55%);
+}
+
+.message {
+    display: flex;
+    max-width: 80%;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message.saulo {
+    align-self: flex-start;
+}
+
+.message.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.message.system {
+    align-self: center;
+    max-width: 90%;
+    background: rgba(90, 58, 26, 0.3); /* Dorado oscuro transparente */
+    border: 1px solid #7a5a36;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #d4a76a;
+}
+
+/* Mensajes con efecto de vidrio esmerilado - SIN FONDO SÓLIDO */
+.message-content {
+    background: rgba(44, 22, 0, 0.4); /* Café muy transparente */
+    backdrop-filter: blur(12px);
+    border-radius: 18px;
+    padding: 16px 18px;
+    position: relative;
+    max-width: 100%;
+    border: 1px solid rgba(90, 58, 26, 0.3);
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Efectos de borde cálidos */
+.message.saulo .message-content {
+    border-left: 4px solid #ff6b00; /* Naranja intenso */
+    background: rgba(255, 107, 0, 0.1); /* Tenue naranja */
+    border-color: rgba(255, 107, 0, 0.4);
+}
+
+.message.user .message-content {
+    border-right: 4px solid #f59e0b; /* Ámbar */
+    background: rgba(245, 158, 11, 0.1); /* Tenue ámbar */
+    border-color: rgba(245, 158, 11, 0.4);
+}
+
+.message-text {
+    font-size: 15px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    color: #f5e9d9; /* Crema cálida */
+}
+
+.message-time {
+    font-size: 12px;
+    color: #b08d57; /* Dorado medio */
+    margin-top: 8px;
+    text-align: right;
+    opacity: 0.8;
+}
+
+/* Área de entrada con temática cálida */
+.input-container {
+    padding: 20px;
+    border-top: 1px solid rgba(90, 58, 26, 0.5);
+    background: rgba(28, 15, 0, 0.9);
+    backdrop-filter: blur(10px);
+}
+
+.input-wrapper {
+    position: relative;
+}
+
+textarea {
+    width: 100%;
+    background: rgba(44, 22, 0, 0.6);
+    border: 1px solid #7a5a36;
+    border-radius: 12px;
+    color: #f5e9d9;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    padding: 16px;
+    padding-right: 120px;
+    resize: none;
+    outline: none;
+    transition: all 0.3s;
+    line-height: 1.5;
+    min-height: 60px;
+    max-height: 150px;
+}
+
+textarea:focus {
+    border-color: #ff6b00;
+    box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.15);
+    background: rgba(44, 22, 0, 0.8);
+}
+
+.input-controls {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.char-count {
+    font-size: 12px;
+    color: #b08d57;
+}
+
+.send-btn {
+    background: linear-gradient(135deg, #ff6b00 0%, #ff9500 100%);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    color: #1c0f00; /* Texto oscuro para contraste */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(255, 107, 0, 0.3);
+}
+
+.send-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(255, 107, 0, 0.5);
+}
+
+.send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, #7a5a36 0%, #b08d57 100%);
+}
+
+/* Scrollbar personalizada con temática cálida */
+.messages-container::-webkit-scrollbar {
+    width: 10px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+    background: rgba(44, 22, 0, 0.3);
+    border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #ff6b00, #ff9500);
+    border-radius: 4px;
+    border: 2px solid rgba(28, 15, 0, 0.3);
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(to bottom, #ff9500, #ff6b00);
+}
+
+/* Scrollbar general */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(44, 22, 0, 0.5);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #b08d57;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #d4a76a;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .chat-container {
+        height: 100vh;
+        border-radius: 0;
+        border: none;
+    }
+    
+    body {
+        padding: 0;
+    }
+    
+    .message {
+        max-width: 90%;
+    }
+}
+
+/* ============ ESTILOS MARKDOWN MEJORADOS ============ */
+/* Sin fondos oscuros, integrados con la temática */
+
+.saulo-markdown {
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #f5e9d9;
+    background: transparent !important;
+}
+
+.saulo-markdown p {
+    margin-bottom: 14px;
+    color: #f5e9d9;
+}
+
+.saulo-markdown strong {
+    font-weight: 700;
+    color: #ffb347; /* Naranja dorado */
+}
+
+.saulo-markdown em {
+    font-style: italic;
+    color: #e6c9a8;
+}
+
+.saulo-markdown code {
+    background: rgba(255, 107, 0, 0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: #ff9500;
+    border: 1px solid rgba(255, 107, 0, 0.3);
+}
+
+.saulo-markdown pre {
+    background: rgba(28, 15, 0, 0.7) !important;
+    border: 1px solid #ff6b00 !important;
+    border-radius: 10px;
+    padding: 16px;
+    margin: 16px 0;
+    overflow-x: auto;
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.saulo-markdown pre code {
+    background: transparent !important;
+    padding: 0;
+    color: #ffb347;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    border: none;
+}
+
+.saulo-markdown ul,
+.saulo-markdown ol {
+    padding-left: 24px;
+    margin: 14px 0;
+}
+
+.saulo-markdown li {
+    margin-bottom: 8px;
+    line-height: 1.6;
+    color: #f5e9d9;
+}
+
+.saulo-markdown ul li::marker {
+    color: #ff9500;
+}
+
+.saulo-markdown h1, 
+.saulo-markdown h2, 
+.saulo-markdown h3, 
+.saulo-markdown h4 {
+    margin-top: 20px;
+    margin-bottom: 16px;
+    font-weight: 700;
+    color: #ffb347;
+    background: transparent !important;
+}
+
+.saulo-markdown h1 { 
+    font-size: 1.7em;
+    border-bottom: 2px solid rgba(255, 107, 0, 0.3);
+    padding-bottom: 8px;
+}
+.saulo-markdown h2 { font-size: 1.4em; }
+.saulo-markdown h3 { font-size: 1.2em; }
+
+.saulo-markdown blockquote {
+    border-left: 4px solid #ff6b00;
+    padding: 12px 20px;
+    margin: 20px 0;
+    color: #e6c9a8;
+    font-style: italic;
+    background: rgba(255, 107, 0, 0.08);
+    border-radius: 0 8px 8px 0;
+}
+
+.saulo-markdown a {
+    color: #ff9500;
+    text-decoration: none;
+    border-bottom: 1px dotted rgba(255, 149, 0, 0.4);
+    transition: all 0.2s;
+}
+
+.saulo-markdown a:hover {
+    color: #ff6b00;
+    border-bottom: 1px solid #ff6b00;
+}
+
+.saulo-markdown hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #ff6b00, transparent);
+    margin: 24px 0;
+}
+
+.saulo-markdown table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    background: transparent !important;
+    border: 1px solid #7a5a36;
+}
+
+.saulo-markdown th, 
+.saulo-markdown td {
+    border: 1px solid #7a5a36;
+    padding: 10px 14px;
+    text-align: left;
+    color: #f5e9d9;
+    background: transparent !important;
+}
+
+.saulo-markdown th {
+    background: rgba(255, 107, 0, 0.15) !important;
+    font-weight: 700;
+    color: #ffb347;
+}
+
+/* Efecto de brillo sutil en mensajes importantes */
+.message.saulo .saulo-markdown blockquote,
+.message.saulo .saulo-markdown pre {
+    box-shadow: 0 0 15px rgba(255, 107, 0, 0.1);
+}
+
+/* Animación sutil para nuevos mensajes */
+@keyframes gentleGlow {
+    0% { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); }
+    50% { box-shadow: 0 4px 20px rgba(255, 107, 0, 0.1); }
+    100% { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); }
+}
+
+.message.saulo .message-content {
+    animation: gentleGlow 3s ease-in-out;
+}
