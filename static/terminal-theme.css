@@ -1,0 +1,320 @@
+/* TERMINAL THEME - Saulo v4
+ * Estética de terminal/cmd sin romper funcionalidad
+ */
+
+/* Override: Colores de terminal */
+:root {
+    --bg-primary: #000000 !important;
+    --bg-secondary: #0c0c0c !important;
+    --bg-tertiary: #1a1a1a !important;
+    --text-primary: #cccccc !important;
+    --text-secondary: #808080 !important;
+    --accent: #00ff00 !important;
+    --accent-hover: #00cc00 !important;
+    --border: #333333 !important;
+    --radius: 2px !important;
+    --font: 'Consolas', 'Courier New', 'Lucida Console', monospace !important;
+}
+
+/* Scrollbar estilo terminal */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0c0c0c;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #333;
+    border: 1px solid #555;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Sidebar estilo terminal */
+.sidebar {
+    background: #0c0c0c !important;
+    border-right: 1px solid #333 !important;
+    font-family: 'Consolas', 'Courier New', monospace !important;
+}
+
+/* Logo sin gradiente, color terminal */
+.logo-text {
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    -webkit-text-fill-color: #00ff00 !important;
+    color: #00ff00 !important;
+    font-weight: bold !important;
+}
+
+.version {
+    background: #1a1a1a !important;
+    border: 1px solid #333 !important;
+    color: #808080 !important;
+    -webkit-text-fill-color: #808080 !important;
+    font-family: monospace !important;
+}
+
+/* Botones estilo terminal */
+.new-chat-btn {
+    background: #1a1a1a !important;
+    border: 1px solid #444 !important;
+    border-radius: 0 !important;
+    font-family: 'Consolas', monospace !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+}
+
+.new-chat-btn:hover {
+    background: #252525 !important;
+    border-color: #00ff00 !important;
+    color: #00ff00 !important;
+}
+
+/* Secciones estilo terminal */
+.sidebar-section h3 {
+    color: #808080 !important;
+    font-family: 'Consolas', monospace !important;
+    text-transform: uppercase !important;
+    font-size: 11px !important;
+    letter-spacing: 2px !important;
+    border-bottom: 1px solid #333 !important;
+    padding-bottom: 5px !important;
+}
+
+/* Mode buttons estilo terminal */
+.mode-btn {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: 0 !important;
+    font-family: 'Consolas', monospace !important;
+}
+
+.mode-btn:hover {
+    background: #1a1a1a !important;
+    border-color: #444 !important;
+}
+
+.mode-btn.active {
+    background: #1a1a1a !important;
+    border-left: 3px solid #00ff00 !important;
+    color: #00ff00 !important;
+}
+
+/* Select estilo terminal */
+.model-select {
+    background: #1a1a1a !important;
+    border: 1px solid #444 !important;
+    border-radius: 0 !important;
+    font-family: 'Consolas', monospace !important;
+    color: #ccc !important;
+}
+
+/* User section estilo terminal */
+.user-row {
+    font-family: 'Consolas', monospace !important;
+}
+
+/* Conversaciones estilo terminal */
+.conversations-list {
+    font-family: 'Consolas', monospace !important;
+}
+
+/* Footer estilo terminal */
+.sidebar-footer {
+    border-top: 1px solid #333 !important;
+    font-family: 'Consolas', monospace !important;
+}
+
+.status-dot.online {
+    background: #00ff00 !important;
+    box-shadow: 0 0 5px #00ff00 !important;
+}
+
+/* Main content estilo terminal */
+.main-content {
+    background: #000000 !important;
+}
+
+/* Chat container */
+.chat-container {
+    background: #000000 !important;
+    border: 1px solid #333 !important;
+    font-family: 'Consolas', monospace !important;
+}
+
+/* Messages estilo terminal */
+.message {
+    font-family: 'Consolas', monospace !important;
+    border-left: 2px solid transparent !important;
+}
+
+.message.user {
+    border-left-color: #00ff00 !important;
+}
+
+.message.assistant {
+    border-left-color: #0080ff !important;
+}
+
+/* Input area estilo terminal */
+.input-area {
+    background: #0c0c0c !important;
+    border-top: 1px solid #333 !important;
+}
+
+.input-container {
+    background: #1a1a1a !important;
+    border: 1px solid #444 !important;
+    border-radius: 0 !important;
+}
+
+#message-input {
+    background: transparent !important;
+    font-family: 'Consolas', monospace !important;
+    color: #ccc !important;
+}
+
+#message-input::placeholder {
+    color: #555 !important;
+}
+
+/* Mode badge estilo terminal */
+.mode-badge {
+    background: #1a1a1a !important;
+    border: 1px solid #00ff00 !important;
+    border-radius: 0 !important;
+    font-family: 'Consolas', monospace !important;
+    text-transform: uppercase !important;
+    font-size: 10px !important;
+    letter-spacing: 1px !important;
+}
+
+/* Send button estilo terminal */
+.send-btn {
+    background: transparent !important;
+    border: 1px solid #00ff00 !important;
+    border-radius: 0 !important;
+    color: #00ff00 !important;
+}
+
+.send-btn:hover {
+    background: #00ff00 !important;
+    color: #000 !important;
+}
+
+.send-btn:disabled {
+    border-color: #444 !important;
+    color: #444 !important;
+}
+
+/* Action buttons estilo terminal */
+.action-btn {
+    border-radius: 0 !important;
+}
+
+/* Welcome screen estilo terminal */
+.welcome-screen {
+    background: #000000 !important;
+}
+
+.welcome-content h2 {
+    color: #00ff00 !important;
+    font-family: 'Consolas', monospace !important;
+    text-transform: uppercase !important;
+    letter-spacing: 3px !important;
+}
+
+.welcome-content p {
+    color: #808080 !important;
+    font-family: 'Consolas', monospace !important;
+}
+
+/* Quick buttons estilo terminal */
+.quick-btn {
+    background: #1a1a1a !important;
+    border: 1px solid #444 !important;
+    border-radius: 0 !important;
+    font-family: 'Consolas', monospace !important;
+}
+
+.quick-btn:hover {
+    border-color: #00ff00 !important;
+    color: #00ff00 !important;
+}
+
+/* Modal estilo terminal */
+.modal-overlay {
+    background: rgba(0, 0, 0, 0.9) !important;
+}
+
+.modal {
+    background: #0c0c0c !important;
+    border: 1px solid #444 !important;
+    border-radius: 0 !important;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.1) !important;
+}
+
+.modal h3 {
+    color: #00ff00 !important;
+    font-family: 'Consolas', monospace !important;
+    text-transform: uppercase !important;
+}
+
+/* ASCII Art Terminal en Sidebar */
+.ascii-terminal-section {
+    background: #000 !important;
+    border: 1px solid #333 !important;
+    padding: 5px !important;
+}
+
+.ascii-terminal-container {
+    background: #000 !important;
+    font-family: 'Consolas', 'Courier New', monospace !important;
+    font-size: 5px !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+    overflow: hidden !important;
+}
+
+.ascii-terminal-container pre {
+    margin: 0 !important;
+    color: #aaa !important;
+    text-shadow: none !important;
+    white-space: pre !important;
+    font-size: 5px !important;
+    line-height: 1 !important;
+}
+
+/* Efecto cursor parpadeante sutil */
+.ascii-terminal-container::after {
+    content: '█';
+    color: #00ff00;
+    animation: blink 1s step-end infinite;
+    font-size: 8px;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Input footer estilo terminal */
+.input-footer {
+    color: #555 !important;
+    font-family: 'Consolas', monospace !important;
+    font-size: 10px !important;
+}
+
+/* Health status estilo terminal */
+.health-status {
+    font-family: 'Consolas', monospace !important;
+}
+
+.status-text {
+    color: #808080 !important;
+}
